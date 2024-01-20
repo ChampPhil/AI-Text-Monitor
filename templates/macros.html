@@ -1,0 +1,309 @@
+{% macro yt_data_displayer(data) %}
+<link rel="stylesheet" href="/static/edit_channel_form.css">
+<div id="full-data-holder" style="margin-top: 5px;"></div>
+<script>
+    const channel_data = {{ data|tojson }}
+    var total_data_holder = document.getElementById('full-data-holder')
+    
+    const createDataRow = (channel_database_id, title, has_been_processed, has_been_processed_colors, any_processed) => {
+
+        const content = `
+            <div class='border-bottom row' style="margin-bottom:16px;padding-bottom:8px;">
+                <div class="col-6" id="data-segment">
+                    <h4 style="color:rgb(120, 120, 120); margin-bottom:4px;"> ${title} </h4>
+                    <div>
+                        <b> Sentiment Model: <b style="color: ${has_been_processed_colors[0]}"> ${has_been_processed[0]}</b> </b>    
+                    </div>
+                    <div>
+                        <b> Toxicity Measurer: <b style="color: ${has_been_processed_colors[1]}"> ${has_been_processed[1]}</b> </b> 
+                    </div>
+                    <div>
+                        <b> Emotions Classifier: <b style="color: ${has_been_processed_colors[2]}"> ${has_been_processed[2]}</b> </b>    
+                    </div>
+
+
+                </div>
+
+                <div class="col-2" id="get-data-btn">
+                    <div class="form-group" id="yt-channel-row---view-results-button${channel_database_id}" onclick="window.location.href='/view_inference_results/YT/${channel_database_id}';">
+                        
+                    </div>
+                </div>
+                <div class="col-2" id="process-data-btn">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-outline-info" onclick="window.location.href='/media_analyzer/YT/${channel_database_id}';" >Process Data</button>
+                    </div>
+                </div>
+                <div class="col-2" id="delete-data-btn">
+                    <div class="form-group">
+                        <button type="button" id="yt-delete${channel_database_id}" onclick="deleteChannel(${channel_database_id})" class="btn btn-warning">Delete Data</button>
+                    </div>
+                </div>                  
+            </div>
+        `
+
+        total_data_holder.innerHTML += content;
+        view_results_button = document.getElementById(`yt-channel-row---view-results-button${channel_database_id}`)
+        
+       
+        if (any_processed == 0) {
+            view_results_button.innerHTML = `<button type="button" class="btn btn-outline-info" disabled>View Data</button>`
+        } else {
+            view_results_button.innerHTML = `<button type="button" class="btn btn-outline-info">View Data</button>`
+        }
+
+        
+    }
+
+
+
+    for (const row of channel_data) {
+        console.log(row)
+        var has_been_processed_lst = [];
+        var has_been_processed_colors_lst = []
+
+        for (var i = 4; i <= 6; i++) { // Iterate over the usedModel part of the row
+            if (row[i] == 1) {
+                has_been_processed_lst.push("True")
+                has_been_processed_colors_lst.push("#66ff00")
+            }
+
+            else {
+                has_been_processed_lst.push("False")
+                has_been_processed_colors_lst.push("#E10600")
+            }
+            
+        }
+        console.log(row)
+        createDataRow(row[0], row[1], has_been_processed_lst, has_been_processed_colors_lst, row[row.length - 1])
+    }
+
+    /*
+    function activateCommentTransfer(database_id, title) {
+        var comment_limit = document.getElementById('comment-limit-form').value
+
+        socketio.emit('storeAPI_data', {'framework': 'YT', 'key': database_id, 'limit': Number(comment_limit)});
+        document.getElementById('exit_warning').disabled = true
+        document.getElementById('process_data_warning').disabled = true
+        document.getElementById('end_processing-button').disabled = false
+
+        socketio.on('requestsInProgress', (data) => {
+            if (data['framework'] == 'YT') {
+                if (data['name'] == title) {
+                    var percentage_value = (data['num-requests-done']/data['total-requests']) * 100;
+                    document.getElementById('api-progress-bar').style.width = `${percentage_value}%`;
+                    document.getElementById('api-progress-bar').innerHTML = `${Math.round(percentage_value)}%`
+
+                    if (document.getElementById('api-progress-bar').style.width == '100%') {
+                        document.getElementById('api-progress-bar').classList.add('bg-success')
+                        document.getElementById('exit_warning').disabled = false
+                        document.getElementById('end_processing-button').disabled = true
+                    }
+                }
+
+                if (data['force-done'] == true) {
+                    document.getElementById('api-progress-bar').style.width = `100%`;
+                    document.getElementById('api-progress-bar').classList.add('bg-danger')
+                    document.getElementById('api-progress-bar').innerHTML = `Channel Ran Out Of Accessible Comments: ${data['num-requests-done']} stored`
+                    document.getElementById('exit_warning').disabled = false
+                    document.getElementById('end_processing-button').disabled = true
+                }
+
+                if (data['force-done'] == "USER-ENDED") {
+                    document.getElementById('api-progress-bar').style.width = `100%`;
+                    document.getElementById('api-progress-bar').classList.add('bg-warning')
+                    document.getElementById('api-progress-bar').innerHTML = `Collected Comments: ${data['num-requests-done']} stored`
+                    document.getElementById('exit_warning').disabled = false
+                    document.getElementById('end_processing-button').disabled = true
+                }
+                
+            }
+        })
+
+    
+
+    
+    } */
+
+    
+    function deleteChannel(database_id) {
+        console.log("Asked to delete yt channel")
+        document.getElementById(`yt-delete${database_id}`).disabled = true;
+        socketio.emit('deleteData', {'framework': 'YT', 'key': database_id})
+    }
+
+    
+</script>
+
+{% endmacro %}
+
+
+
+
+
+
+{% macro reddit_data_displayer(data) %}
+<link rel="stylesheet" href="/static/edit_channel_form.css">
+<div id="full-data-holder" style="margin-top: 5px;">
+</div>
+<script>
+    const channel_data = {{ data|tojson }}
+    var total_data_holder = document.getElementById('full-data-holder')
+    
+    const createDataRow = (channel_database_id, title, stored_comments_date, has_been_processed, has_been_processed_colors, any_processed) => {
+        const content = `
+            <div class='border-bottom row' style="margin-bottom:16px;padding-bottom:8px;">
+                <div class="col-6" id="data-segment">
+                    <h4 style="color:rgb(120, 120, 120); margin-bottom:4px;"> ${title} </h4>
+                    <div>
+                        <b> Sentiment Model: <b style="color: ${has_been_processed_colors[0]}"> ${has_been_processed[0]}</b> </b>    
+                    </div>
+                    <div>
+                        <b> Toxicity Measurer: <b style="color: ${has_been_processed_colors[1]}"> ${has_been_processed[1]}</b> </b> 
+                    </div>
+                    <div>
+                        <b> Emotions Classifier: <b style="color: ${has_been_processed_colors[2]}"> ${has_been_processed[2]}</b> </b>    
+                    </div>
+
+                </div>
+
+                <div class="col-2" id="get-data-btn">
+                    <div class="form-group" id="reddit-forum-row---view-results-button${channel_database_id}"  onclick="window.location.href='/view_inference_results/RD/${channel_database_id}';">
+                        
+                    </div>
+                </div>
+                <div class="col-2" id="process-data-btn">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-outline-info" onclick="window.location.href='/media_analyzer/RD/${channel_database_id}';" >Process Data</button>
+                    </div>
+                </div>
+                <div class="col-2" id="delete-data-btn">
+                    <div class="form-group">
+                        <button type="button" id="rd-delete${channel_database_id}" onclick="deleteChannel(${channel_database_id})" class="btn btn-warning">Delete Data</button>
+                    </div>
+                </div>              
+      </div>
+        `
+
+        total_data_holder.innerHTML += content;
+
+        view_results_button = document.getElementById(`reddit-forum-row---view-results-button${channel_database_id}`)
+        
+       
+        if (any_processed == 0) {
+            view_results_button.innerHTML = `<button type="button" class="btn btn-outline-info" disabled>View Data</button>`
+        } else {
+            view_results_button.innerHTML = `<button type="button" class="btn btn-outline-info">View Data</button>`
+        }
+
+    }
+
+    for (const row of channel_data) {
+        console.log(row)
+        var has_been_processed_lst = [];
+        var has_been_processed_colors_lst = []
+
+        for (var i = 2; i <= 4; i++) { // Iterate over the usedModel part of the row
+            if (row[i] == 1) {
+                has_been_processed_lst.push("True")
+                has_been_processed_colors_lst.push("#66ff00")
+            }
+
+            else {
+                has_been_processed_lst.push("False")
+                has_been_processed_colors_lst.push("#E10600")
+            }
+            
+        }
+        console.log(row)
+        createDataRow(row[0], row[1], row[2], has_been_processed_lst, has_been_processed_colors_lst, row[row.length - 1])
+    }
+
+    
+
+     
+
+    function deleteChannel(database_id) {
+        document.getElementById(`rd-delete${database_id}`).disabled = true;
+        socketio.emit('deleteData', {'framework': 'RD', 'key': database_id})
+    }
+
+</script>
+
+{% endmacro %}
+
+{% macro create_one_shot_text_analysis_visual_row(titles, metrics) %}
+<script>
+    var row_titles = {{ titles|tojson }}
+    var row_metrics = {{ metrics|tojson }}
+    
+
+    var total_data_holder = document.getElementById('holder-of-rows')
+
+    const createVisualRow = (title, row_num, metrics) => {
+
+        var title_content = `<h2 class="text-center mt-2" style="margin-bottom: 40px; color: #03AC13"> ${title} </h2>
+                            <div class="row">
+                                <div class="col-5"></div>
+                                <div class="col-2"> <button type="button" onclick="beginTextProcessing(${row_num}, '${title}')" style="margin-bottom: 20px;" class="btn btn-primary ">Analyze Text</button></div>
+                                <div class="col-5"></div>
+                                
+
+                            </div>
+                           
+
+
+                            <div class="row" style="margin-top: 50px; margin-bottom: 100px;" >
+                                <div class="col-2"></div>
+                                <div class="col-4">
+                                    <textarea id="textInput-Row${row_num}" style="border-radius: 20px; resize: none;" class="form-control" rows="7" ></textarea>  
+                                </div>
+                                <div class="col-1"></div>
+                                <div class="col-4">
+                                    <div class="special-container" id="holder_of_progress_bars_for_row${row_num}">
+                                        <div></div>  
+                                    </div>
+                                </div>
+                                <div class="col-4"></div>
+                            </div>`
+
+        total_data_holder.innerHTML += title_content;
+
+        for (const [index, metric] of metrics.entries()) {
+            
+            var holder_of_bars = document.getElementById(`holder_of_progress_bars_for_row${row_num}`)
+           
+
+
+            var progress_bar_content = `
+                <div class="skill-box">
+                        <span class="title" id="row${row_num}-metric${index+1}-percentage"> ${metric} (0%)     </span>
+                        <div class="skill-bar">
+                            <span class="skill-per" style="width: 0%; animation-delay: 0.2;" id="row${row_num}-metric${index+1}">
+                                <span class="tooltip"></span>
+                            </span>
+                        </div>
+                </div>
+            `
+
+            holder_of_bars.innerHTML += progress_bar_content;
+
+
+        }
+
+
+    }
+
+    
+    for (const [index, title] of row_titles.entries()) {
+        createVisualRow(row_titles[index], index, row_metrics[index])
+    }
+    
+
+</script>
+
+
+{% endmacro %}
+
+
+

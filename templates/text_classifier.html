@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% from 'macros.html' import create_one_shot_text_analysis_visual_row %}
+   
+    <!----======== CSS ======== -->
+    <link rel="stylesheet" href="/static/text_classifier_style.css">
+
+    {% include 'nav.html' %}
+    <img class="img-fluid"id="banner"src="static\banner.jpg" style="margin-bottom: 50px;">
+    <div id="holder-of-rows">       
+        <div></div>
+        {{ create_one_shot_text_analysis_visual_row(titles, metrics) }}
+        
+    </div>
+    {% include 'footer.html' %}
+
+    <script>
+        var socketio = io();
+        
+        text_analyzer_titles = {{ titles|tojson }}
+        text_analyzer_metrics = {{ metrics|tojson }}
+        
+
+        function beginTextProcessing(row_num, title) {
+            console.log("IN javascript, asked to begin")
+            var text_input = document.getElementById(`textInput-Row${row_num}`).value
+            socketio.emit('runOneInference', {'text': text_input, 'model-title': title}) 
+            // Title of the Row ("Emotions Classifier", "Toxicity Detector", etc)
+
+            socketio.on('runOneInference-Results', (data) => { 
+                console.log("Well..I'm in the function")
+                if (data['model-type'] == title) {
+                    console.log("About to alter progress bars")
+                    for (let i = 0; i < Object.keys(data).length - 1; i++)  { 
+                        //Get the amount of progress bars there are
+                        var raw_percentage = data[`data${i+1}`]
+
+                        document.getElementById(`row${row_num}-metric${i+1}`).style.width = `${raw_percentage}%`
+                        document.getElementById(`row${row_num}-metric${i+1}-percentage`).innerText = `${data['labels-list'][i]} (${raw_percentage}%)`
+                    }
+
+                    console.log("Altered Bars")
+                }
+
+
+            })
+
+        }
+
+    </script>
+
+
+{% endblock %}

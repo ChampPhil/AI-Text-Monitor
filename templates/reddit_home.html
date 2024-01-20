@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% from 'macros.html' import reddit_data_displayer %}
+
+
+  <link rel="stylesheet" href="/static/edit_channel_form.css">
+  
+
+
+  {% include 'nav.html' %}
+  <img class="img-fluid"id="banner"src="static\banner.jpg">
+  <div class="container">
+    <h1 class="text-center mt-2 mb-4"> Reddit Forum Collection </h1>   
+    <h2 class="text-center mt-2 mb-4"> About This</h2>
+    <div class="row">
+      <div class="col-6">
+        <p class="lead"> 
+          One of the premier platforms of communication is Reddit. And, as we all know:
+          <ul class="lead">
+            <li>Where there is communication, there is toxicity. </li>
+            <li>Where their is communication, there is sentiment.</li>
+            <li>Where there is communication, their is emotions. </li>
+          </ul>
+      
+          <p class="lead">Where is text, there is the AI Text Monitor!</p>
+          <br>
+          <b class="lead">ENJOY!</b>
+        </p>
+      </div>
+      <div class="col-6">
+        <p>
+          <img style="width:100%; height:100%; object-fit: cover;margin-bottom: 16px;" src="/static/Reddit_logo.jpg" style="height:320px;">
+        </p>
+      </div>
+    </div>
+    <h2 class="text-center mt-2" style="margin-bottom: 40px"> Redit Subforms </h2>
+    <div id="warning-location">
+
+    </div>
+
+    <div style="margin-top: 20px;">
+      {{ reddit_data_displayer(data) }}
+    </div>
+    <div class="row">
+      <div class="col-4"></div>
+      <div class="col-2" style="margin-top: 45px">
+        <button class="btn btn-primary btn-lg"  onclick="openForm('channelForm')">Add Channel</button>
+      </div>
+      <div class="col-2" style="margin-top: 45px">
+      </div>
+      <div class="col-4"></div>
+    </div>    
+  </div>  
+  <div class="row">
+    <div class="col-3"></div>
+    <div class="col-6">
+      <div class="form-popup" id="channelForm">
+        <div class="form-container" id='lock-to'>
+            <h2 style="color: white; margin-bottom: 10px; position: relative; left: 15vw; right: 30vw">Add Subforum Form</h2>
+          <form action="#">       
+            <div class="integrated_text_button">
+              <label style="color: grey;" for="addForum"><b>Subform Name</b></label>
+              <input type="text" class="form-control" style="color: rgb(57, 57, 57); margin-bottom: 6px;" placeholder="Enter Sub-Forum Name" id="addForum" name="addForum" required>
+              <div id="addForum-FormText" id="lock-to" style="margin-top: 0px" class="form-text"></div>
+
+            </div>
+  
+            <button type="button" class="btn"  id="add-forum-button" onclick="Process()">Process</button>
+            <button type="button" class="btn cancel" id="exit-add-forum-button" onclick="unlock('channelForm')">Close</button>
+
+          </form>
+        </div>
+      </div>
+      <div class="col-3"></div>
+    </div>
+  </div>
+  <script>
+    var socketio = io();
+
+    function Process() {
+      document.getElementById('add-forum-button').disabled = true;
+      document.getElementById('exit-add-forum-button').disabled = true;
+      var name = document.getElementById('addForum').value
+      
+
+      
+      document.getElementById('addForum-FormText').innerHTML = '';
+      document.getElementById('addForum-FormText').style.color = '';
+      
+      if ( isEmpty(name) ) {
+        console.log("Empty")
+        document.getElementById('addForum-FormText').innerHTML = 'Type In A SubForm Name First'
+        document.getElementById('addForum-FormText').style.color = '#F9E076'
+        document.getElementById('add-forum-button').disabled = false;
+        document.getElementById('exit-add-forum-button').disabled = false;
+
+      } else {
+        socketio.emit('getBasicInfo', {'framework': 'RD', 'name': name})
+      }
+    }
+
+    socketio.on("API_REQUEST_FAILED", (data) => {
+      if (data['framework'] === 'RD') {
+        if (data['transfer_id'] === document.getElementById('addForum').value) {
+          document.getElementById('addForum-FormText').innerHTML = 'The Forum Name Is Invalid'
+          document.getElementById('addForum-FormText').style.color = '#f1807e'
+  
+          document.getElementById('add-forum-button').disabled = false;
+          document.getElementById('exit-add-forum-button').disabled = false;
+        }
+      }
+    })
+
+    socketio.on('BasicInfoGotten', (data) => {
+      if (data['framework'] === 'RD') {
+        if (data['stored-already'] === true) {
+          document.getElementById('addForum-FormText').innerHTML = 'Channel Already Stored';
+          
+          document.getElementById('addForum-FormText').style.color = '#F9E076'
+          document.getElementById('add-forum-button').disabled = false;
+          document.getElementById('exit-add-forum-button').disabled = false;
+        } else {
+          document.getElementById('addForum-FormText').innerHTML = 'Channel Added Succesfully';
+          document.getElementById('addForum-FormText').style.color = '#66ff00'
+          addDatabase()
+        }
+      }
+    })
+
+    function isEmpty(str) {
+      return !str.trim().length;
+    }
+
+    function addDatabase() {
+      var name = document.getElementById('addForum').value;
+      
+
+      socketio.emit('addToDatabase', {'title': name, 'framework': 'RD'})
+      /* document.getElementById('addForum').readOnly = true;         
+      document.getElementById('addForum').style.background = '#D3D3D3'; */
+
+      document.getElementById('add-forum-button').disabled = false;
+      document.getElementById('exit-add-forum-button').disabled = false;
+
+
+
+      
+    }
+    
+    function lock_to_element(element_name) {
+      var target = document.getElementById(element_name);
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center"});
+      document.body.style.overflow = "hidden";
+      document.body.style.userSelect = "none";
+    }
+
+    function unlock(element_name) {
+      document.getElementById(element_name).style.display = "none";
+      document.getElementById('add-forum-button').disabled = false;
+      document.getElementById('exit-add-forum-button').disabled = false; /* Make buttons toucbable */
+
+      document.body.style.overflow = "auto";
+      document.body.style.userSelect = "auto";
+    }
+    function openForm(element_name) {
+      document.getElementById(element_name).style.display = "block";
+      document.getElementById('addForum').readOnly = false;
+      lock_to_element('lock-to')
+
+    }
+
+    
+
+  </script>
+  {% include 'footer.html' %}
+    
+{% endblock %}

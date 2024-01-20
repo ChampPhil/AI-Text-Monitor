@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+
+  <link rel="stylesheet" href="/static/data_analyzer_style_sheet.css">
+
+  {% include 'nav.html' %}    
+  
+  <img class="img-fluid"id="banner"src="/static/banner.jpg">
+  <div class="container border-bottom" style="margin-bottom: 25px;">
+      <h1 class="text-center" style="margin-bottom:20px;"> Stored Data Analyzer</h1>  
+      <h2 class="text-center" style="margin-top:5vh; margin-bottom: 5vh;" id="selected_yt_channel"> Selected <b style="color:yellof;"> {{ prefix }} </b>: <b style="color: red;"> {{ title[0] }}</b></h2></h2>
+  </div>
+
+  <h2 class="text-center mt-2" style="margin-bottom: 40px; color: #03AC13">  Sentiment Model <b style="color: #a57755;">({{ comments_analyzed_for_each_model[0] }} comments processed)</b></h2>
+  <div class="row border-bottom" style="margin-bottom: 25px;" id="sentimentClassifierRes">
+
+  </div>
+
+  <h2 class="text-center mt-2" style="margin-bottom: 40px; color: #03AC13"> Toxicity Measurer <b style="color: #a57755;">({{ comments_analyzed_for_each_model[1] }} comments processed)</b> </h2>
+  <div class="row border-bottom" style="margin-bottom: 25px;" id="toxicityMeasurerRes">
+
+  </div>
+
+  
+  <h2 class="text-center mt-2" style="margin-bottom: 40px; color: #03AC13"> Emotions Classifier <b style="color: #a57755;">({{ comments_analyzed_for_each_model[2] }} comments processed)</b> </h2>
+  <div class="row" id="emotionsDetectorRes">
+
+  </div>
+
+  <!-- The data displayer
+
+
+  <div class="row" id="grand-container">
+    <div class="col-2"></div>
+    <h2 class="col-3 data-label"id="data1" ></h2>
+    <h2 class="col-3 data-label" id="data2"></h2>
+    <h2 class="col-3 data-label" style="margin-bottom: 30px" id="data3"></h2>
+    <div class="col-1" ></div>
+
+    <div class="col-2"></div>
+    <h2 class="col-3 data-label" class="data-label" id="data4" ></h2>
+    <h2 class="col-3 data-label" class="data-label" id="data5" ></h2>
+    <h2 class="col-3 data-label" style="margin-bottom: 30px;" class="data-label" id="data6"></h2>
+    <div class="col-1" ></div>
+
+    <div class="col-5"></div>
+    <h2 class="col-2 data-label" class="data-label" id="data7"></h2>
+    <div class="col-5"></div>
+    
+    
+    <h2 class="col-4" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
+  
+  </div> 
+  --> 
+
+  
+
+  <script type="text/javascript">
+    var labels = {{ labels|tojson }};
+
+    var list_of_container_ids = ["sentimentClassifierRes", "toxicityMeasurerRes", "emotionsDetectorRes"];
+
+    var inference_res = {{ inference_res|tojson }};
+
+    var comments_analyzed_for_each_model = {{ comments_analyzed_for_each_model|tojson }}
+
+    for (var [index, model_res] of inference_res.entries()) {
+      if (model_res.length == 0) {
+        document.getElementById(`${list_of_container_ids[index]}`).innerHTML =`
+
+          <h1 style="text-align: center; margin-top: 20px; margin-bottom: 40px; color: red"> NO RESULTS </h1>
+
+
+        `
+      } else {
+          document.getElementById(`${list_of_container_ids[index]}`).innerHTML = `
+              <div class="col-2" ></div>
+              <h2 class="col-3 data-label"id="${list_of_container_ids[index]}-data1" ></h2>
+              <h2 class="col-3 data-label" id="${list_of_container_ids[index]}-data2"></h2>
+              <h2 class="col-3 data-label" style="margin-bottom: 30px" id="${list_of_container_ids[index]}-data3"></h2>
+              <div class="col-1" ></div>
+
+              <div class="col-2"></div>
+              <h2 class="col-3 data-label" id="${list_of_container_ids[index]}-data4" ></h2>
+              <h2 class="col-3 data-label"  id="${list_of_container_ids[index]}-data5" ></h2>
+              <h2 class="col-3 data-label" style="margin-bottom: 30px;" id="${list_of_container_ids[index]}-data6"></h2>
+              <div class="col-1" ></div>
+
+              <div class="col-5"></div>
+              <h2 class="col-2 data-label"  id="${list_of_container_ids[index]}-data7"></h2>
+              <div class="col-5"></div>
+              `
+              
+        for (var [i, result] of model_res.entries())
+
+          document.getElementById(`${list_of_container_ids[index]}-data${i+1}`).innerHTML = `${labels[index][i]}: <b class="data-number">${result}%</b>`
+
+        }
+
+        
+
+          
+      }
+    
+    
+
+    
+    
+    
+  </script>
+
+  {% include 'footer.html' %}
+ 
+{% endblock %}

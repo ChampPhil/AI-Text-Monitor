@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block content %}
+
+  <link rel="stylesheet" href="/static/data_analyzer_style_sheet.css">
+            
+  {% include 'nav.html' %}
+  <img class="img-fluid"id="banner"src="/static/banner.jpg">
+  <div class="container">
+      <h1 class="text-center border-bottom" style="margin-bottom:20px;"> Stored Data Analyzer</h1>  
+      <h2 class="text-center" style="margin-top:5vh; margin-bottom: 5vh;" id="selected_yt_channel"> Selected <b style="color:yellow;">{{ prefix }}</b>: <b style="color: red;">{{ results[0] }}</b></h2></h2>
+
+      <div class="row">
+        <div class="col-4"></div>
+        <div class="col-3" style="margin-right: 0;">
+          <h2 class="text-center" style="margin-right: 0;"> Stored Comments: </h2>
+        </div>
+        <div class="col-2" style="margin-left: 0;">
+          <input id="num_text_input" style="margin-left: 0;" class="form-control" type="number" placeholder="Type In a Number!">
+        </div>
+        <div class="col-4"></div>
+
+        
+        
+      </div>
+
+    </div>
+
+  <div class="row" style="margin-bottom: 15px;">
+    <div class="col-3"></div>
+    <div class="col-2" style="margin-top: 5vh;">
+      {% if results[1] == 0 %}
+        <button type="submit" style="margin-bottom: 10px; margin-top: 8px;" id="usedsentimentmodel-btn" onclick="startAnalyzing(['Negative', 'Neutral', 'Positive'], 'sentiment-model')"  class="btn btn-warning btn-lng"> Analyze Base Sentiment </button>
+      {% else %}
+        <button type="submit" style="margin-bottom: 10px; margin-top: 8px;" id="usedsentimentmodel-btn" onclick="startAnalyzing(['Negative', 'Neutral', 'Positive'], 'sentiment-model')"  class="btn btn-success btn-lng"> Analyze Base Sentiment </button>
+      {% endif %}
+    </div> 
+    <div class="col-2" style="margin-top: 5vh;">
+      {% if results[2] == 0 %}
+        <button type="submit" style="margin-bottom: 10px; margin-top: 8px;" id="usedtoxicitymodel-btn" onclick="startAnalyzing(['Toxic', 'Non-Toxic'], 'toxicity-model')" class="btn btn-warning btn-lng"> Analyze Toxicity </button>
+      {% else %}
+        <button type="submit" style="margin-bottom: 10px; margin-top: 8px;" id="usedtoxicitymodel-btn" onclick="startAnalyzing(['Toxic', 'Non-Toxic'], 'toxicity-model')" class="btn btn-success btn-lng"> Analyze Toxicity </button>
+      {% endif %}
+    </div>                                                                        
+    <div class="col-2" style="margin-top: 5vh;">
+      {% if results[3] == 0 %}
+        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passion/Anger', 'Concern/Fear', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Surprise/Questioning'], 'emotions-model')" class="btn btn-warning btn-lng"> Analyze Emotions </button>
+      {% else %}
+        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passion/Anger', 'Concern/Fear', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Surprise/Questioning'], 'emotions-model')" class="btn btn-success btn-lng"> Analyze Emotions </button>
+      {% endif %}
+      </div> 
+
+    <div class="col-3"></div>
+  </div>
+
+  <h6 id="text-to-warn-user" class="border-bottom" style="color: red; text-align: center; margin-bottom: 20px;"></h6>
+  
+  <h2 class="text-center" style="margin-top:20px; margin-bottom: 25px;"> Percentage Analyzed: <b id='percentage-analyzed' style="color: purple;">0%</b></h2>
+  
+  <div class="progress" role="progressbar" style="width: 25%; margin: auto; margin-bottom: 50px;">
+    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progress-of-text-inference" style="width: 0%"></div>
+  </div>
+
+  <div class="row">
+    <div class="col-5" style="margin-top: 50px;"></div>
+    <div class="col-2">
+      <button type="button" style="margin-bottom: 25px;" id="the-button-to-end-inference" onclick="forceEnd()" class="btn btn-lg btn-danger">End Inference</button>
+    </div> 
+    <div class="col-5"></div>
+
+    
+
+
+
+  </div>
+  
+
+  
+  <div class="row" id="grand-container">
+    <div class="col-2"></div>
+    <h2 class="col-3 data-label"id="data1" ></h2>
+    <h2 class="col-3 data-label" id="data2"></h2>
+    <h2 class="col-3 data-label" style="margin-bottom: 30px" id="data3"></h2>
+    <div class="col-1" ></div>
+
+    <div class="col-2"></div>
+    <h2 class="col-3 data-label"  id="data4" ></h2>
+    <h2 class="col-3 data-label"  id="data5" ></h2>
+    <h2 class="col-3 data-label" style="margin-bottom: 30px;"id="data6"></h2>
+    <div class="col-1" ></div>
+
+    <div class="col-5"></div>
+    <h2 class="col-2 data-label"  id="data7"></h2>
+    <div class="col-5"></div>
+    
+    
+    <h2 class="col-4" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
+  
+  </div>  
+
+  
+
+  <script type="text/javascript">
+    var socketio = io();
+    var results = {{ results|tojson }};
+
+    var api_error_occured_so_end_processing = false; 
+
+    function BackgroundInferenceHasEnded() {
+      document.getElementById('location-of-sign').innerText = "ENDED PROCESSING";  
+      document.getElementById("usedsentimentmodel-btn").disabled = false;    
+      document.getElementById("usedtoxicitymodel-btn").disabled = false;  
+      document.getElementById("usedemotionsmodel-btn").disabled = false;  
+      document.getElementById('the-button-to-end-inference').disabled = true;
+      
+      //document.getElementById("location-of-sign").disabled = true;   
+
+    }
+
+    socketio.on("API_Error", (data) => { 
+      api_error_occured_so_end_processing = true;
+      if (document.getElementById('progress-of-text-inference').classList.contains('bg-success')) {
+        document.getElementById('progress-of-text-inference').classList.remove('bg-success')
+      }
+
+      document.getElementById('progress-of-text-inference').classList.add('bg-warning')
+      document.getElementById('progress-of-text-inference').innerText = `${data['text']}: ${data['num-collected']}`
+    
+      document.getElementById('progress-of-text-inference').style.width = '100%'
+      console.log("Changed Width")
+      BackgroundInferenceHasEnded()
+    })
+
+   
+    
+
+    function forceEnd() {
+      document.getElementById('location-of-sign').innerText = "ENDED PROCESSING";
+      document.getElementById("usedsentimentmodel-btn").disabled = false;    
+      document.getElementById("usedtoxicitymodel-btn").disabled = false;  
+      document.getElementById("usedemotionsmodel-btn").disabled = false;  
+      document.getElementById('the-button-to-end-inference').disabled = true;
+      socketio.emit('endDataInference')  
+      
+    }
+    
+    function startAnalyzing(metrics, model_type) { 
+      api_error_occured_so_end_processing = false; 
+      if( document.getElementById('num_text_input').value == ''   )  {
+        document.getElementById('text-to-warn-user').innerText = 'Please input a comment limit first!'
+        return 
+      }
+
+      document.getElementById('text-to-warn-user').innerText = ''
+
+      document.getElementById('grand-container').innerHTML = `
+      <div class="col-2"></div>
+      <h2 class="col-3 data-label"id="data1" ></h2>
+      <h2 class="col-3 data-label" id="data2"></h2>
+      <h2 class="col-3 data-label" style="margin-bottom: 30px" id="data3"></h2>
+      <div class="col-1" ></div>
+
+      <div class="col-2"></div>
+      <h2 class="col-3 data-label" class="data-label" id="data4" ></h2>
+      <h2 class="col-3 data-label" class="data-label" id="data5" ></h2>
+      <h2 class="col-3 data-label" style="margin-bottom: 30px;" class="data-label" id="data6"></h2>
+      <div class="col-1" ></div>
+
+      <div class="col-5"></div>
+      <h2 class="col-2 data-label" class="data-label" id="data7"></h2>
+      <div class="col-5"></div>
+            
+      <h2 class="col-4" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
+      `
+
+      document.getElementById('location-of-sign').innerText = "";
+      document.getElementById("usedsentimentmodel-btn").disabled = true;    
+      document.getElementById("usedtoxicitymodel-btn").disabled = true;  
+      document.getElementById("usedemotionsmodel-btn").disabled = true;  
+      document.getElementById('the-button-to-end-inference').disabled = false;
+
+      if (document.getElementById('progress-of-text-inference').classList.contains('bg-success')) {
+        document.getElementById('progress-of-text-inference').classList.remove('bg-success')
+        console.log("Fixing color")
+        document.getElementById('progress-of-text-inference').style.width = "0%"
+      } else if (document.getElementById('progress-of-text-inference').classList.contains('bg-warning')) {
+          document.getElementById('progress-of-text-inference').classList.remove('bg-warning')
+      }
+
+      console.log("Here");
+      socketio.emit('runDataInfernece', {'key': results[results.length - 1], 'limit': Number(document.getElementById('num_text_input').value), 'framework': results[results.length - 2], 'model-type': model_type});
+
+      
+      for (let i = 0; i < metrics.length; i++) {
+        document.getElementById(`data${i+1}`).innerHTML = `${metrics[i]}: <b class="data-number" id="data-number${i+1}"></b>` 
+      }
+      
+    
+      socketio.on("resultsofInference", (data) => { 
+        if (api_error_occured_so_end_processing == true) {
+          document.getElementById('progress-of-text-inference').style.width = '100%'
+          return
+        }
+
+        document.getElementById('percentage-analyzed').innerText = `${data['percentage-processed']}%`
+
+        document.getElementById('progress-of-text-inference').style.width = `${data['percentage-processed']}%`
+        document.getElementById('progress-of-text-inference').innerText = `${data['percentage-processed']}%`
+
+        console.log("Here's the current percent")
+        console.log(data['percentage-processed'])
+        
+
+        if (data['percentage-processed'] == 100) {
+          document.getElementById('progress-of-text-inference').classList.add('bg-success')
+          document.getElementById('the-button-to-end-inference').disabled = true
+          BackgroundInferenceHasEnded()
+
+        }
+
+        for (let i = 0; i < data['num-plots']; i++)  {
+          var percent = Math.round((data[`data${i+1}`]/data['total-processed']) * 100)
+          document.getElementById(`data-number${i+1}`).innerText = `${percent}%`
+          
+        }
+      })
+    }
+
+    
+    
+    
+  </script>
+
+  {% include 'footer.html' %}
+  
+
+{% endblock %}

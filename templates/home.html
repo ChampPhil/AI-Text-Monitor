@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% from 'macros.html' import yt_data_displayer %}
+
+
+  <link rel="stylesheet" href="/static/edit_channel_form.css">
+  
+
+
+  {% include 'nav.html' %}
+  <img class="img-fluid"id="banner"src="static\banner.jpg">
+  <div class="container">
+    <h1 class="text-center mt-2 mb-4"> AI Text Classification</h1>   
+    <h2 class="text-center mt-2 mb-4"> About Us</h2>
+    <div class="row">
+      <div class="col-6">
+        <p class="lead"> Toxicity has become a <b> SERIOUS </b> problem in the internet. I'm sure we've all seen some <i> very </i>
+          interesting language while scrolling. Enter the <b> Multi Ulitiy AI MONITOR</b>. This project was meant to be a solution to the problems plauging us all.
+          This front-end to back-end software employs Python (<i> a high-purpose general programming language</i>), A <i>Deep Neural Network</i>, and Flask (<i> A python library built to make easy web applications</i>)
+          to return real-time, high-quality stats to you on the overall toxicity present in a YT channel.   
+          <br>
+          <br>
+          <b>ENJOY!</b>
+        </p>
+      </div>
+      <div class="col-6">
+        <p>
+          <img style=" width:100%; height:100%; object-fit: cover; margin-bottom: 16px;" src="/static/about_us_pic.jpg" style="height:320px;">
+        </p>
+      </div>
+    </div>
+    <h2 class="text-center mt-2" style="margin-bottom: 40px"> YT Channels </h2>
+    <div id="warning-location">
+
+    </div>
+
+    <div style="margin-top: 20px;">
+      {{ yt_data_displayer(yt_channels) }}
+    </div>
+    <div class="row">
+      <div class="col-4"></div>
+      <div class="col-2" style="margin-top: 45px">
+        <button class="btn btn-primary btn-lg" onclick="openForm('channelForm')">Add Channel</button>
+      </div>
+      <div class="col-2" style="margin-top: 45px">
+      </div>
+      <div class="col-4"></div>
+    </div>    
+  </div>  
+  <div class="row">
+    <div class="col-3"></div>
+    <div class="col-6">
+      <div class="form-popup" id="channelForm">
+        <div class="form-container" id='lock-to'>
+            <h2 style="color: white; margin-bottom: 10px; position: relative; left: 15vw; right: 30vw">Add Channel Form</h2>
+          <form action="#">       
+            <div class="integrated_text_button">
+              <label style="color: grey;" for="channel-name"><b>Channel Name</b></label>
+              <input type="text" class="form-control" style="color: rgb(57, 57, 57); margin-bottom: 6px;" placeholder="Enter Channel Name" id="channel-name" name="channel-name" aria-describedby="addChannel-FormText" required>
+              <div id="addChannel-FormText" style="margin-top: 0px" class="form-text"></div>
+              <button type="button" onclick="fillForm()">Search</button>
+            </div>
+        
+            <label style="color: grey;" for="channel-id"><b>Channel Id</b></label>
+            <input type="text"  id="channel-id-of-add-channel" style="border: 0;border-radius: 10px; background: #D3D3D3; color: red" placeholder="None" name="channel-id" readonly>
+
+            <label style="color: grey;" for="upload-id"><b>Upload Id</b></label>
+            <input type="number"  id="upload-id-of-add-channel" style="border: 0;border-radius: 10px; background: #D3D3D3; color: red" placeholder="None" name="upload-id" readonly>
+        
+            <button type="button" class="btn" onclick="addChannelToDatabase()">Save</button>
+            <button type="button" class="btn cancel" onclick="unlock('channelForm')">Close</button>
+          </form>
+        </div>
+      </div>
+      <div class="col-3"></div>
+    </div>
+  </div>
+  <script>
+    var socketio = io();
+
+    function fillForm() {
+      var channel_name = document.getElementById('channel-name').value
+      socketio.emit('getBasicInfo', {'framework': 'YT', 'name': channel_name})
+    }
+
+    function endAPI_Processing() {
+      socketio.emit('endAPI_Processing', {'nothing': "nothing"})
+    }
+
+    socketio.on('BasicInfoGotten', (data) => {
+      if (data.framework === 'YT') {
+        if (data['stored-already'] == false) {
+          document.getElementById('addChannel-FormText').innerHTML = 'Got Data Successfully!'
+          document.getElementById('addChannel-FormText').style.color = '#90EE90'
+
+          document.getElementById('channel-id-of-add-channel').placeholder = data['channel-id']
+          document.getElementById('upload-id-of-add-channel').placeholder = data['upload-id']
+        } else {
+          document.getElementById('addChannel-FormText').innerHTML = 'Channel Already Stored'
+          document.getElementById('addChannel-FormText').style.color = '#AF69EF'
+        }
+        
+      }
+    })
+
+    socketio.on('API_Error', (data) => {
+        if (data['framework'] == 'YT') {
+            if (data['status'] === 'quota_exceeded_in_scraping') {
+                document.getElementById('api-progress-bar').classList.add('bg-danger')
+                document.getElementById('api-progress-bar').style.width = '100%'
+                document.getElementById('api-progress-bar').innerHTML = `YT API Quota Exceed: ${data['num-requests-done']} comments Stored`
+                document.getElementById('exit_warning').disabled = false
+            } else if (data['status'] === 'quota_exceeded_in_info_gathering') {
+                console.log("Failedd......")
+                document.getElementById('addChannel-FormText').innerHTML = "The YouTube API has exceeded its Quota. Come Back Tomorrow!"
+                document.getElementById('addChannel-FormText').style.color = "red"
+            }
+        }
+    })
+
+    socketio.on("API_REQUEST_FAILED", (data) => {
+      if (data['framework'] === 'YT') {
+        if (data['transfer_id'] === document.getElementById('channel-name').value) {
+          document.getElementById('addChannel-FormText').innerHTML = 'The Channel Name Is Invalid'
+          document.getElementById('addChannel-FormText').style.color = '#f1807e'
+          document.getElementById('channel-id-of-add-channel').placeholder = 'None'
+          document.getElementById('upload-id-of-add-channel').placeholder = 'None'
+        }
+      }
+    })
+
+    function addChannelToDatabase() {
+      var channel_name = document.getElementById('channel-name').value
+      var channel_id = document.getElementById('channel-id-of-add-channel').placeholder
+      var upload_id = document.getElementById('upload-id-of-add-channel').placeholder
+
+      if (channel_id === 'None') {
+        document.getElementById('addChannel-FormText').innerHTML = 'Search For A Channel Name First'
+        document.getElementById('addChannel-FormText').style.color = '#F9E076'
+      } else {
+        socketio.emit('addToDatabase', {'title': channel_name, 'channel-id': channel_id, 'upload-id':upload_id, 'framework': 'YT'})
+        unlock('channelForm')
+      }
+    }
+    
+    function lock_to_element(element_name) {
+      var target = document.getElementById(element_name);
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center"});
+      document.body.style.overflow = "hidden";
+      document.body.style.userSelect = "none";
+    }
+
+    function unlock(element_name) {
+      document.getElementById(element_name).style.display = "none";
+      document.body.style.overflow = "auto";
+      document.body.style.userSelect = "auto";
+    }
+    function openForm(element_name) {
+      document.getElementById(element_name).style.display = "block";
+      lock_to_element('lock-to')
+
+    }
+
+    
+
+  </script>
+  {% include 'footer.html' %}
+
+{% endblock %}
