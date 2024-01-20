@@ -9,9 +9,10 @@ HTML and Jinja2 (a web template engine for Python), hundreds of lines of Javascr
 
 
 The AI Text Monitor allows for the user to process an indivual piece of text and analyze 
-    1. Whether it's "toxic" or "non-toxic"
-    2. Whether it's negative, neutral, or positive
-    3. Whether its Passionate/Angry, Concerned/Fearful, Disgusted, Neutral, Joyful, Sad, or Surprised
+
+1. Whether it's "toxic" or "non-toxic"
+2. Whether it's negative, neutral, or positive
+3. Whether its Passionate/Angry, Concerned/Fearful, Disgusted, Neutral, Joyful, Sad, or Surprised
 
 On the other hand, the AI Text Monitor also allows the user to store a particular 
 YouTube channel or Reddit Forum and then analyze X num of comments from that channel/forum.
