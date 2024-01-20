@@ -5,6 +5,7 @@ from flask_socketio import join_room, leave_room, send, SocketIO, emit
 from colorama import Fore, Back, Style
 import numpy as np
 import signal
+import threading
 import googleapiclient
 from googleapiclient.discovery import build
 import reddit_functions
@@ -358,8 +359,8 @@ continue_with_processing = True
 @socketio.on('runDataInfernece')
 def collect_yt_channel_comments(data):
     
-    #Make the data_thread global (Not sure what the data_thread does)
-    global data_thread
+    #
+    
 
     if data['model-type'] == "emotions-model":
         results = [0, 0, 0, 0, 0, 0, 0]
@@ -372,40 +373,44 @@ def collect_yt_channel_comments(data):
     
 
     if data['framework'] == 'YT':
+        
+        sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
+        cursor = sqliteConnection.cursor()
 
-        #Saw this in an article
-        @copy_current_request_context
-        #Collect comments in the background (is their some other way?)
-        def background_yt_comments_getter():
-            
-            sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
-            cursor = sqliteConnection.cursor()
+        
 
+        #User can end data processing by clicking 'EndDataInference' 
+        @socketio.on('endDataInference')
+        def endAPI_Processing():
+            global continue_with_processing
+            continue_with_processing = False
+            print("\n\n\n\n\n\n\nUser Said End Processing\n\n\n\n\n")
+            socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'})
+            return
+
+        print("In function")
+        
+        
+        cursor.execute("SELECT uploadsid, title FROM yt_channels WHERE pos = ?", (data['key'],))
+        data_row = cursor.fetchone()
+
+      
+      
+        currentTime = datetime.datetime.now()
+        timestamp = currentTime.timestamp()
+        date_time = datetime.datetime.fromtimestamp(timestamp)
+
+
+ 
+
+        def yt_comment_collector():
             global continue_with_processing
             continue_with_processing = True
 
-            #User can end data processing by clicking 'EndDataInference' 
-            @socketio.on('endDataInference')
-            def endAPI_Processing():
-                global continue_with_processing
-                continue_with_processing = False
-                print("\n\n\n\n\n\n\nUser Said End Processing\n\n\n\n\n")
-                socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'})
-                return
-
-            print("In function")
-           
-            
-            cursor.execute("SELECT uploadsid, title FROM yt_channels WHERE pos = ?", (data['key'],))
-            data_row = cursor.fetchone()
-
             vid_next_page_token = None
-            
-            commentThread_next_page_token = None
+        
+            commentThread_next_page_token = None   
 
-            currentTime = datetime.datetime.now()
-            timestamp = currentTime.timestamp()
-            date_time = datetime.datetime.fromtimestamp(timestamp)
             vid_id = None 
 
             while True: #Loop over each video_id
@@ -486,9 +491,9 @@ def collect_yt_channel_comments(data):
                                     'data1': int(results[0]), 'data2': int(results[1]), 'data3': int(results[2]),  
                                         'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
 
-                           
                             
-                           
+                            
+                            
                         except Exception as e:
                             print(e)
                             print("Couldn't get comment")
@@ -501,78 +506,83 @@ def collect_yt_channel_comments(data):
                 if continue_with_processing == False:
                     break
             
-           
-               
+            
+                
                 #channel_data['data'][database_id]["Stored Comments Date"] = date_time.strftime("%B %d, %Y")
+    
+        t1 = threading.Thread(target=yt_comment_collector)   
+        t1.start()
+
+        t1.join()
+        print("Updated Channel Data")
+
+        cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM yt_channels WHERE pos = ?", (data['key']))
+        has_been_processed = cursor.fetchone()
+        if data['model-type'] == "emotions-model":
+            cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE yt_channels SET usedemotionsmodel = 1 WHERE pos = ?", (data['key'], ))
+            
+            if has_been_processed[0] == 0:
+                cursor.execute("INSERT INTO emotionsDetectorRes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results)))
+            else:
+                cursor.execute("UPDATE emotionsDetectorRes SET anger = ?, fear = ?, disgust = ?, neutral = ?, joy = ?, sadness = ?, surprise = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results), data['key']))
+            
+
+        elif data['model-type'] == "toxicity-model":
+            cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE yt_channels SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
+
+            if has_been_processed[1] == 0:
+                print("Hasn't been processed")
+                cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], sum(results)))
+            else:
+                print(results)
+                cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
+
+        elif data['model-type'] == "sentiment-model":
+            cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE yt_channels SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
+
+            if has_been_processed[2] == 0:
+                print("Hasn't been processed")
+                cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], results[2], sum(results) ))
+
+            else:
+                print(results)
+                cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
         
-                
-            print("Updated Channel Data")
-
-            cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM yt_channels WHERE pos = ?", (data['key']))
-            has_been_processed = cursor.fetchone()
-            if data['model-type'] == "emotions-model":
-                cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE yt_channels SET usedemotionsmodel = 1 WHERE pos = ?", (data['key'], ))
-                
-                if has_been_processed[0] == 0:
-                    cursor.execute("INSERT INTO emotionsDetectorRes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results)))
-                else:
-                    cursor.execute("UPDATE emotionsDetectorRes SET anger = ?, fear = ?, disgust = ?, neutral = ?, joy = ?, sadness = ?, surprise = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results), data['key']))
-                
-
-            elif data['model-type'] == "toxicity-model":
-                cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE yt_channels SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
-
-                if has_been_processed[1] == 0:
-                    print("Hasn't been processed")
-                    cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], sum(results)))
-                else:
-                    print(results)
-                    cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
-
-            elif data['model-type'] == "sentiment-model":
-                cursor.execute("UPDATE yt_channels SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE yt_channels SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
-
-                if has_been_processed[2] == 0:
-                    print("Hasn't been processed")
-                    cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], results[2], sum(results) ))
-
-                else:
-                    print(results)
-                    cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
-            
-            sqliteConnection.commit()
-            sqliteConnection.close()
+        sqliteConnection.commit()
+        sqliteConnection.close()
             
 
-        #global data_thread
-        with thread_lock:
-            data_thread = socketio.start_background_task(background_yt_comments_getter)
+        
+        
 
     elif data['framework'] == 'RD':
+
+
         print("Reddit Is being Utilized")
 
         print(f"This is the data that daddy recieved: {data}")
-        @copy_current_request_context
-        def background_rd_comments_getter():
+        
 
-            sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
-            cursor = sqliteConnection.cursor()
+        sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
+        cursor = sqliteConnection.cursor()
 
-            currentTime = datetime.datetime.now()
-            timestamp = currentTime.timestamp()
-            date_time = datetime.datetime.fromtimestamp(timestamp)
+        currentTime = datetime.datetime.now()
+        timestamp = currentTime.timestamp()
+        date_time = datetime.datetime.fromtimestamp(timestamp)
 
-            
-            params = {"limit": 100}
-            
+        
+        params = {"limit": 100}
+        
 
-            cursor.execute("SELECT title FROM reddit_data WHERE pos = ?", (data['key'],))
-            data_row = cursor.fetchone()
-            broken_name = data_row[0].split('/')
+        cursor.execute("SELECT title FROM reddit_data WHERE pos = ?", (data['key'],))
+        data_row = cursor.fetchone()
+        broken_name = data_row[0].split('/')
 
+        
+        def rd_comment_collector():
             global continue_with_processing
             continue_with_processing = True
 
@@ -651,57 +661,60 @@ def collect_yt_channel_comments(data):
                 else:
                     print("\n\nThe processing has been cut off...\n\n")
                     break
-              
-            print("Updated Forum Data")
-            cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM reddit_data WHERE pos = ?", (data['key']))
-            has_been_processed = cursor.fetchone()
-            print(has_been_processed)
-            
-            if data['model-type'] == "emotions-model":
-                cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE reddit_data SET usedemotionsmodel = 1 WHERE pos = ?", (data['key'], ))
-                
-                if has_been_processed[0] == 0:
-                    print("Hasn't been processed")
-                    cursor.execute("INSERT INTO emotionsDetectorRes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results)))
-                else:
-                    print(results)
-                    cursor.execute("UPDATE emotionsDetectorRes SET anger = ?, fear = ?, disgust = ?, neutral = ?, joy = ?, sadness = ?, surprise = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results), data['key']))
-            
-            elif data['model-type'] == "toxicity-model":
-                cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE reddit_data SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
-                
-                if has_been_processed[1] == 0:
-                    print("Hasn't been processed")
-                    cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], sum(results)))
-                else:
-                    print(results)
-                    cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
+        
+        t1 = threading.Thread(target=rd_comment_collector)   
+        t1.start()
 
-            elif data['model-type'] == "sentiment-model":
-                cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
-                cursor.execute("UPDATE reddit_data SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
-                
-                if has_been_processed[2] == 0:
-                    print("Hasn't been processed")
-                    cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], sum(results)))
+        t1.join()
+        print("Updated Forum Data")
+        cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM reddit_data WHERE pos = ?", (data['key']))
+        has_been_processed = cursor.fetchone()
+        print(has_been_processed)
+        
+        if data['model-type'] == "emotions-model":
+            cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE reddit_data SET usedemotionsmodel = 1 WHERE pos = ?", (data['key'], ))
+            
+            if has_been_processed[0] == 0:
+                print("Hasn't been processed")
+                cursor.execute("INSERT INTO emotionsDetectorRes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results)))
+            else:
+                print(results)
+                cursor.execute("UPDATE emotionsDetectorRes SET anger = ?, fear = ?, disgust = ?, neutral = ?, joy = ?, sadness = ?, surprise = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results), data['key']))
+        
+        elif data['model-type'] == "toxicity-model":
+            cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE reddit_data SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
+            
+            if has_been_processed[1] == 0:
+                print("Hasn't been processed")
+                cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], sum(results)))
+            else:
+                print(results)
+                cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
 
-                else:
-                    print(results)
-                    cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
+        elif data['model-type'] == "sentiment-model":
+            cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
+            cursor.execute("UPDATE reddit_data SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
             
-            
-            #cursor.execute("UPDATE reddit_data SET inferencedate = ? WHERE pos = ?", (date_time.strftime('%Y-%m-%d'), data['key']))
-            
-           
-            sqliteConnection.commit()
-            sqliteConnection.close()
-            
+            if has_been_processed[2] == 0:
+                print("Hasn't been processed")
+                cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], sum(results)))
+
+            else:
+                print(results)
+                cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
+        
+        
+        #cursor.execute("UPDATE reddit_data SET inferencedate = ? WHERE pos = ?", (date_time.strftime('%Y-%m-%d'), data['key']))
+        
+        
+        sqliteConnection.commit()
+        sqliteConnection.close()
+        
        
-        #global data_thread
-        with thread_lock:
-            data_thread = socketio.start_background_task(background_rd_comments_getter)
+        
+       
 
 
 @socketio.on("addToDatabase")
@@ -746,133 +759,7 @@ def add_to_database(data):
 
        
             
-
-""" 
-Archived Function That Doesnt Seem To Serve Any Purpose 
-
-@socketio.on('sendBackDatabse-value')
-def sendBackDatabaseData(data):
-    if data['framework'] == 'YT':
-        with open(f"{app.config['JSON_DATA_FILES']}/channel_data.json") as jsonFile:
-            channel_data = json.load(jsonFile)
-
-        socketio.emit('sentDatabase-value', {'framework': 'YT', 'requestedData': channel_data['data'][str(data['key'])]})
-"""
-
-end_loop = 0
-
-@socketio.on("runInferenceOnStoredText")
-def infernece_runner(data):
-    global end_loop
-    end_loop = 0
-
-    print("Called")
-    database_key = str(data['title'])
-    json_file_prefix = 'reddit' if data['framework'] == 'RD' else 'channel'
-    with open(f"{app.config['JSON_DATA_FILES']}/{json_file_prefix}_comments.json", 'r') as f:
-        stored_text = json.load(f)[database_key]
-        
-        
-
-    @copy_current_request_context
-    def inference_tasking():
-        total_processed = 0
-
-        print("\n\n\n\n\n\n\nRunning Grand Process\n\n\n\n\n\n\n")
-        if data['model-type'] == 'neg-neutral-positive':
-            results = np.array([0, 0, 0])
-            print("Here")
-            output_generator = inferenceFunctions.sentiment_classification_inference(neg_neutral_positive_model_pipeline, stored_text)
-            for position in output_generator:
-                @socketio.on("endThread")
-                def endThread():
-                    global end_loop
-                    print("\n\n\n\n\n\n\n\nBreaking the loop\n\n\n\n\n")
-                    end_loop = 1
-
-                if end_loop == 1:
-                    print("\n\n---------------------------\nSucess in ending\n\n")
-                    break
-                #If it returns 0 - means its negative
-                #If it returns 1 - means its neutral
-                #If it returns 2 - means its positive
-                if position != "FAILED":
-                    results[position] += 1
-                    total_processed += 1
-                    
-
-                
-        
-                    socketio.emit('resultsofInference', {'total-processed': total_processed, 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 
-                                    'data3': int(results[2]), 
-                                    'num-plots': 3, 'percentage-processed': round((total_processed/len(stored_text)) * 100, 1)})
-        
-        elif data['model-type'] == 'binary-toxic':
-            print("IN code")
-            results = np.array([0, 0])
-            output_generator = inferenceFunctions.toxicity_inference(binary_toxic_model_pipeline, stored_text)
-
-
-            for score in output_generator:
-                @socketio.on("endThread")
-                def endThread():
-                    global end_loop
-                    print("\n\n\n\n\n\n\n\nBreaking the loop\n\n\n\n\n")
-                    end_loop = 1
-
-                if end_loop == 1:
-                    print("\n\n---------------------------\nSucess in ending\n\n")
-                    break
-
-                print("Running")
-                if score != "FAILED":
-                    print(f"This is the score: {score}")
-                    results[score] += 1
-                    total_processed += 1
-                
-    
-                    socketio.emit('resultsofInference', {'total-processed': total_processed, 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 
-                                        'num-plots': 2, 'percentage-processed': round((total_processed/len(stored_text)) * 100, 1)})
-        
-        elif data['model-type'] == 'emotions-detector':
-            print("IN emotions code")
-            results = np.array([0, 0, 0, 0, 0, 0, 0])
-            output_generator = inferenceFunctions.emotions_inference(emotions_detector_model_pipeline, stored_text)
-
-        
-            for position in output_generator:  
-                @socketio.on("endThread")
-                def endThread():
-                    global end_loop
-                    print("\n\n\n\n\n\n\n\nBreaking the loop\n\n\n\n\n")
-                    end_loop = 1
-
-                if end_loop == 1:
-                    print("\n\n---------------------------\nSucess in ending\n\n")
-                    break
-                
-                if position != "FAILED":
-                    
-                    results[position] += 1
-                    total_processed += 1
-                            
-                    socketio.emit('resultsofInference', {'total-processed': total_processed, 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 
-                                    'data3': int(results[2]), 'data4': int(results[3]),
-                                    'data5': int(results[4]), 'data6': int(results[5]),
-                                    'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((total_processed/len(stored_text)) * 100, 1)})
-
-    global data_thread
-    with thread_lock:
-        data_thread = socketio.start_background_task(inference_tasking)
-
    
-   
-    
-        
-
 @socketio.on("connect")
 def connect(auth):
     pass
@@ -880,6 +767,8 @@ def connect(auth):
 
 @socketio.on('disconnect') #If the socket disconnects
 def disconnect():
+    global continue_with_processing
+    continue_with_processing = False
     print("\n\n\n\nCLIENT DISCONNECTED\n\n\n")
     
 
