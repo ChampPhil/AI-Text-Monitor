@@ -23,7 +23,7 @@ import sqlite3
 import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
-#Intialize The Pretrained Hugging Face Transformer Model
+#Intialize The Pretrained Hugging Face Transformer Models
 binary_toxic_model_pipeline = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier")
 neg_neutral_positive_model_pipeline = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment")
 emotions_detector_model_pipeline = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base")
@@ -36,10 +36,8 @@ emotions_detector_model_pipeline_return_all_scores = pipeline('text-classificati
 dir_name = os.path.dirname(os.path.abspath(__file__))
 
 
-#Data Thread (Sets Up Article)
-data_thread = None
-thread_lock = Lock()
-
+#Num of seconds app should wait for new clients to connect, after this, if no clients, then shutdown app
+grace_period = 3 
     
 #More Intialization
 app = Flask(__name__) #Make an app object
@@ -67,7 +65,10 @@ youtube_api_object = youtube = build('youtube', 'v3', developerKey=yt_api_key)
 
 reddit_api_headers = reddit_functions.authorize(reddit_client_id, reddit_secret_token, reddit_username, reddit_password)
 
-                                                                               
+
+#List of Clients
+client_list = []
+                                                                        
 
 #KEEP THIS
 model_labels = [["Negative", "Neutral", "Positive"],
@@ -203,6 +204,9 @@ def yt_channel_monitor(raw_media_type, database_id):
 
 @app.route("/begin_shutdown", methods=('GET', 'POST'))
 def end_the_app():
+    redirect('/')
+    global grace_period
+    time.sleep(grace_period)
     print("\n\n\nShutdown Beginning...\n\n\n")
     os.kill(os.getpid(), signal.SIGINT)
 
@@ -761,15 +765,31 @@ def add_to_database(data):
             
    
 @socketio.on("connect")
-def connect(auth):
-    pass
-
+def connect(auth):  
+    client_list.append(request.sid) #Add Request Sid
+    print(f"\n\n\n\nCLIENT LIST: {client_list}\n\n\n\n") #Get client list
+    
+    time.sleep(grace_period) #Let unused conenctions die down
+    if len(client_list) > 1: #Loop over extra clients
+        for extra_client_sid in client_list[1:]:
+            #Functionality
+            pass
 
 @socketio.on('disconnect') #If the socket disconnects
 def disconnect():
-    global continue_with_processing
+    client_list.remove(request.sid) #Remove sid
+    print(f"\n\n\n\nCLIENT LIST: {client_list}\n\n\n\n")
+
+    global continue_with_processing #End API Processing Thread (if it exists)
     continue_with_processing = False
     print("\n\n\n\nCLIENT DISCONNECTED\n\n\n")
+
+    time.sleep(grace_period) #If no new clients connect within three second period
+    if len(client_list) == 0: #End server
+        print("\n\nNO MORE CLIENTS...ENDING SERVER\n\n")
+        os.kill(os.getpid(), signal.SIGINT)
+
+    
     
 
 #btn btn-outline-primary btn-lg
