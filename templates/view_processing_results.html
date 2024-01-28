@@ -56,6 +56,26 @@
   
 
   <script type="text/javascript">
+    var socketio = io();
+        
+    socketio.on("redirectTab", (data) => {
+      console.log("Being Triggered")
+      if (data['url'] == 'None') {
+        temp_window = window.open('/', '_self')
+        temp_window.close()
+      }
+
+      window.location.href =  data['url']
+     
+       
+    })
+
+    function endServer() {
+      socketio.emit('endServer') 
+      temp_window = window.open('/', '_self')
+      temp_window.close()  
+    }
+    
     var labels = {{ labels|tojson }};
 
     var list_of_container_ids = ["sentimentClassifierRes", "toxicityMeasurerRes", "emotionsDetectorRes"];

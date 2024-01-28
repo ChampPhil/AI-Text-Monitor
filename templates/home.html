@@ -79,6 +79,26 @@
   <script>
     var socketio = io();
 
+    socketio.on("redirectTab", (data) => {
+      console.log("Being Triggered")
+      if (data['url'] == 'None') {
+        temp_window = window.open('/', '_self')
+        temp_window.close()
+      }
+
+      window.location.href =  data['url']
+     
+       
+    })
+
+    function endServer() {
+      socketio.emit('endServer') 
+      temp_window = window.open('/', '_self')
+      temp_window.close()  
+    }
+
+    
+
     function fillForm() {
       var channel_name = document.getElementById('channel-name').value
       socketio.emit('getBasicInfo', {'framework': 'YT', 'name': channel_name})

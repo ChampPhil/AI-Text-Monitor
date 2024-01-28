@@ -101,8 +101,26 @@
 
   <script type="text/javascript">
     var socketio = io();
-    var results = {{ results|tojson }};
 
+    socketio.on("redirectTab", (data) => {
+      console.log("Being Triggered")
+      if (data['url'] == 'None') {
+        temp_window = window.open('/', '_self')
+        temp_window.close()
+      }
+
+      window.location.href =  data['url']
+     
+       
+    })
+
+    function endServer() {
+      socketio.emit('endServer') 
+      temp_window = window.open('/', '_self')
+      temp_window.close()  
+    }
+    
+    var results = {{ results|tojson }};
     var api_error_occured_so_end_processing = false; 
 
     function BackgroundInferenceHasEnded() {
@@ -115,6 +133,8 @@
       //document.getElementById("location-of-sign").disabled = true;   
 
     }
+    
+    
 
     socketio.on("API_Error", (data) => { 
       api_error_occured_so_end_processing = true;
@@ -223,6 +243,8 @@
           
         }
       })
+
+
     }
 
     

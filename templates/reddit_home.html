@@ -78,6 +78,24 @@
   <script>
     var socketio = io();
 
+    socketio.on("redirectTab", (data) => {
+      console.log("Being Triggered")
+      if (data['url'] == 'None') {
+        temp_window = window.open('/', '_self')
+        temp_window.close()
+      }
+
+      window.location.href =  data['url']
+     
+       
+    })
+
+    function endServer() {
+      socketio.emit('endServer') 
+      temp_window = window.open('/', '_self')
+      temp_window.close()  
+    }
+    
     function Process() {
       document.getElementById('add-forum-button').disabled = true;
       document.getElementById('exit-add-forum-button').disabled = true;

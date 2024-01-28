@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 import reddit_functions
 import sys
 import time
+import atexit  
 import random
 from string import ascii_uppercase
 from threading import Lock, Event, Thread
@@ -22,6 +23,9 @@ import inferenceFunctions
 import sqlite3
 import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
+
+
 
 #Intialize The Pretrained Hugging Face Transformer Models
 binary_toxic_model_pipeline = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier")
@@ -37,7 +41,7 @@ dir_name = os.path.dirname(os.path.abspath(__file__))
 
 
 #Num of seconds app should wait for new clients to connect, after this, if no clients, then shutdown app
-grace_period = 3 
+grace_period = 3.5
     
 #More Intialization
 app = Flask(__name__) #Make an app object
@@ -53,6 +57,12 @@ cursor = sqliteConnection.cursor()
 cursor.execute("SELECT * FROM user_data")
 application_user_data = cursor.fetchone()
 
+if not application_user_data:
+    print('**\n\n\nFILL OUT THE USER CREDENTIAL DATABASE BEFORE RUNNING THIS APP!!\n\n')
+
+    print("Shutting Down due to lack of credentials...")
+    sys.exit()
+
 yt_api_key = application_user_data[0]
 reddit_client_id = application_user_data[1]
 reddit_secret_token = application_user_data[2]
@@ -66,9 +76,11 @@ youtube_api_object = youtube = build('youtube', 'v3', developerKey=yt_api_key)
 reddit_api_headers = reddit_functions.authorize(reddit_client_id, reddit_secret_token, reddit_username, reddit_password)
 
 
-#List of Clients
+#List of Clients/Rooms
 client_list = []
-                                                                        
+
+
+                                
 
 #KEEP THIS
 model_labels = [["Negative", "Neutral", "Positive"],
@@ -92,7 +104,7 @@ def hello_world():
 
     sqliteConnection.close()
 
-    print(yt_channels)
+   
 
     return render_template('home.html', yt_channels=yt_channels)
 
@@ -103,6 +115,15 @@ def text_classifier():
 
     return render_template('text_classifier.html', enum=enumerate, titles=model_titles, metrics=model_labels)
 
+"""
+@app.route("/tooManyClientsOpen", methods=('GET', 'POST'))
+def too_many_clients_page():
+    
+    print("\n\n\nMore than 1 Client\n\n\n")
+    return render_template('too_many_clients.html')
+"""
+    
+   
 
 
 @app.route("/reddit_home", methods=('GET', 'POST')) #The default website page (only shown the first time ever)
@@ -115,7 +136,7 @@ def reddit_home():
     cursor.execute("SELECT * FROM reddit_data")
     data = cursor.fetchall()
 
-    print(data)
+    
     sqliteConnection.close()
 
     return render_template('reddit_home.html', data=data)
@@ -137,7 +158,7 @@ def view_inference_results(media_type, database_id):
 
     cursor.execute(f"SELECT usedsentimentmodel, usedtoxicitymodel, usedemotionsmodel FROM {framework} WHERE pos = ?", (database_id))
     has_been_processed = cursor.fetchone() 
-    print(has_been_processed)
+   
     inference_res = []
 
     special_labels = [["Negative", "Neutral", "Positive"],
@@ -149,12 +170,10 @@ def view_inference_results(media_type, database_id):
     for index, database_name in enumerate(database_names):
 
         if has_been_processed[index] != 0:
-            print(database_name)
+           
             cursor.execute(f"SELECT * FROM {database_name} WHERE type = ? AND pos = ?", (media_type, int(database_id)))
             results = cursor.fetchone()
-            print(results)
-            print(results[2:-1])
-            print(results[-1])
+            
 
             percentages = [round((result/sum(results[2:-1])) * 100) for result in results[2:-1]] #Change This to 2:-1
 
@@ -162,7 +181,7 @@ def view_inference_results(media_type, database_id):
             comments_analyzed_for_each_model.append(results[-1])
             
         else:
-            print("In here")
+          
             inference_res.append([])
             comments_analyzed_for_each_model.append(0)
                 
@@ -178,8 +197,7 @@ def view_inference_results(media_type, database_id):
 
 @app.route("/media_analyzer/<raw_media_type>/<database_id>", methods=('GET', 'POST'))
 def yt_channel_monitor(raw_media_type, database_id):
-    print("\n\n---------------------------\nTurns out you do have a usage after all....\n\n-----------------------------------\n")
-    print(raw_media_type)
+   
     media_type = 'youtube' if raw_media_type == 'YT' else 'reddit'
 
     sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
@@ -202,15 +220,20 @@ def yt_channel_monitor(raw_media_type, database_id):
     return render_template('data_analyzer.html', prefix=prefix, results=list(row_results))
 
 
-@app.route("/begin_shutdown", methods=('GET', 'POST'))
+
+@socketio.on('endServer')
 def end_the_app():
-    redirect('/')
+    print("Been called")
     global grace_period
+    socketio.emit('redirectTab', {'url': 'None'})
     time.sleep(grace_period)
+    
     print("\n\n\nShutdown Beginning...\n\n\n")
     os.kill(os.getpid(), signal.SIGINT)
 
-
+@atexit.register 
+def closeAllTabs():
+    socketio.emit('redirectTab', {'url': 'None'})
 
 
 @socketio.on('runOneInference') #Finish this part
@@ -219,18 +242,16 @@ def runOneInference(data):
         output = {'model-type': model_title, 'labels-list': labels_of_model}
         for index in range(len(raw_results)): #The amount of neurons in the output layer of the model
         #Aka the amount of metrics in the model output
-            print(f"Raw scores: {raw_results[index]['score']}")
+           
             output[f'data{index+1}'] = round(raw_results[index]['score'], 3) * 100
         
-        socketio.emit('runOneInference-Results', output)    
-        print(output)  
-     
-    print(f"\n\nI am in the data: {data}")
+        socketio.emit('runOneInference-Results', output, to=request.sid)    
+       
     if data['model-title'] == model_titles[0]: #If the model is 'Sentiment Model'
         results = neg_neutral_positive_model_pipeline_return_all_scores(data['text'])[0]
         sendOutputDict(results, data['model-title'], model_labels[0])
         
-        print("Sent the results back!")
+      
 
     elif data['model-title'] == model_titles[1]: #If its ' Toxicty Measurer
         results = binary_toxic_model_pipeline_return_all_scores(data['text'])[0]
@@ -242,67 +263,45 @@ def runOneInference(data):
 
 @socketio.on('getBasicInfo')
 def getBasicInfo(data):
-    print("Called")
+   
     sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
     cursor = sqliteConnection.cursor()
 
 
     if data['framework'] == 'YT':
-        print("YT called")
+      
 
         cursor.execute("SELECT COUNT(1) FROM yt_channels WHERE title = ?;", (data['name'], ))
         does_exist = cursor.fetchone()
 
         if does_exist[0] != 0:
-            print("Does Exist")
-            socketio.emit('BasicInfoGotten', {'framework': 'YT', 'stored-already': True})
+          
+            socketio.emit('BasicInfoGotten', {'framework': 'YT', 'stored-already': True}, to=request.sid)
             sqliteConnection.close()
             return
         
         channel_id, upload_id = yt_functions.get_data_from_display_name(data['name'], youtube_api_object)
         if channel_id == 'FAILED':
-            print("Invalid Name")
-            socketio.emit("API_REQUEST_FAILED", {'framework': 'YT', 'transfer_id': data['name']})
+         
+            socketio.emit("API_REQUEST_FAILED", {'framework': 'YT', 'transfer_id': data['name']}, to=request.sid)
             sqliteConnection.close()
             return
 
         if channel_id == 'API_EXCEEDED':
-            print("Quota Exceeded")
-            socketio.emit("API_Error", {'status': 'quota_exceeded_in_info_gathering', 'framework': 'YT', 'name': data['name']})
+          
+            socketio.emit("API_Error", {'status': 'quota_exceeded_in_info_gathering', 'framework': 'YT', 'name': data['name']}, to=request.sid)
             sqliteConnection.close()
             return
 
-        print("Is Not Stored")
-        socketio.emit('BasicInfoGotten', {'framework': 'YT', 'channel-id': channel_id, 'upload-id': upload_id, 'stored-already': False})
+       
+        socketio.emit('BasicInfoGotten', {'framework': 'YT', 'channel-id': channel_id, 'upload-id': upload_id, 'stored-already': False}, to=request.sid)
         sqliteConnection.close()
 
         
-        """
-        except Exception as e:
-            print("Exce")
-            print(f"Here's the exception: {e}")
-            try:
-                if e.status_code == 403:
-                    print(f"YouTube API done")
-                    socketio.emit("API_Error", {'status': 'quota_exceeded_in_info_gathering', 'framework': 'YT', 'name': data['name']})
-                    sqliteConnection.close()
-                    return
-                else:
-                    print("Not A Name...")
-                    socketio.emit("API_REQUEST_FAILED", {'framework': 'YT', 'transfer_id': data['name']})
-                    sqliteConnection.close()
-                    return 
-            except Exception as e:
-            
-                print("yo why'd u fail")
-                socketio.emit("API_REQUEST_FAILED", {'framework': 'YT', 'transfer_id': data['name']})
-                sqliteConnection.close()
-                return
-        """
+    
          
     elif data['framework'] == 'RD':
-        print("\n\n-----------------------------------We're checking if its in there...")
-        print(f"Here's the data sent to the function: {data}\n\n")
+     
 
         
         cursor.execute("SELECT COUNT(1) FROM reddit_data WHERE title = ?;", (data['name'], ))
@@ -312,17 +311,16 @@ def getBasicInfo(data):
         if does_exist[0] == 0: #If it isn't in database
             is_real = reddit_functions.subbredit_is_valid(data['name'], reddit_api_headers)
             if is_real:
-                socketio.emit('BasicInfoGotten', {'framework': 'RD', 'stored-already': False})
+                socketio.emit('BasicInfoGotten', {'framework': 'RD', 'stored-already': False}, to=request.sid)
             else:
-                socketio.emit("API_REQUEST_FAILED", {'framework': 'RD', 'transfer_id': data['name']})  
+                socketio.emit("API_REQUEST_FAILED", {'framework': 'RD', 'transfer_id': data['name']}, to=request.sid)  
         else:
-            socketio.emit('BasicInfoGotten', {'framework': 'RD', 'stored-already': True})
+            socketio.emit('BasicInfoGotten', {'framework': 'RD', 'stored-already': True}, to=request.sid)
         
 
 @socketio.on('deleteData')
 def deleteData(data):
-    print(f"Here is the data: {data}")
-    print("In Data Deletion")
+   
 
     sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
     cursor = sqliteConnection.cursor()
@@ -364,7 +362,7 @@ continue_with_processing = True
 def collect_yt_channel_comments(data):
     
     #
-    
+    sid_id = request.sid
 
     if data['model-type'] == "emotions-model":
         results = [0, 0, 0, 0, 0, 0, 0]
@@ -388,11 +386,11 @@ def collect_yt_channel_comments(data):
         def endAPI_Processing():
             global continue_with_processing
             continue_with_processing = False
-            print("\n\n\n\n\n\n\nUser Said End Processing\n\n\n\n\n")
-            socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'})
+          
+            socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'}, to = sid_id)
             return
 
-        print("In function")
+        
         
         
         cursor.execute("SELECT uploadsid, title FROM yt_channels WHERE pos = ?", (data['key'],))
@@ -418,57 +416,50 @@ def collect_yt_channel_comments(data):
             vid_id = None 
 
             while True: #Loop over each video_id
-                print("Benchmark One")
+             
                 try:
                     vid_id, vid_next_page_token = yt_functions.get_vid_id_from_playlist(data_row[0], vid_next_page_token, youtube_api_object)
                 except googleapiclient.errors.HttpError as e:
                     if int(e.status_code) == 403:
-                        print("Exceed Quota")
+                        
+                        socketio.emit("API_Error", {'text': 'API Quota Exceeded', 'num-collected': f'{sum(results)} comments analyzed'}, to=sid_id)
 
-                        socketio.emit("API_Error", {'text': 'API Quota Exceeded', 'num-collected': f'{sum(results)} comments analyzed'})
-
-                    print(e) 
+                   
                     break
 
                 if continue_with_processing == False:
                     break
 
                 if vid_next_page_token == None:
-                    print(vid_id)
-                    print("Stopping YT process")   
-                    socketio.emit("API_Error", {'text': 'No More Videos', 'num-collected': f'{sum(results)} comments analyzed'})
+                       
+                    socketio.emit("API_Error", {'text': 'No More Videos', 'num-collected': f'{sum(results)} comments analyzed'}, to=sid_id)
                     break
 
                 while True: #Loop over each comment_thread
-                    print("Benchmark 2")
+                   
                     try:
                         commentThreads, commentThread_next_page_token = yt_functions.get_comments_from_vid_id(vid_id, commentThread_next_page_token, 100, youtube_api_object) #Make this 100
-                        print("Benchmark 2.5 (Collected CommentThreads)")
+                       
                     except Exception as e:
                         #This also works if it runs out of comments, because it will go back and use the API to get the vid_id
                         #Then, the API Quota Exceeded error will be caught there!
-                        print(e)
-                        print("Video Has Disabled Comments")
                         break
 
                     if data['limit'] != 0 and sum(results) >= data['limit']:
-                        print("Reached Limit")
+            
                         continue_with_processing = False
                         break
                     
                     
                         
                     if continue_with_processing == False:
-                        print("Stop Signal Reached")
                         break
 
 
                     
-                    for commentThread in commentThreads['items']:  #Loop over each comment
-                        print("Benchmark Three")  
+                    for commentThread in commentThreads['items']:  #Loop over each comment 
                         try:
                             if continue_with_processing == False:
-                                print("Stop Signal Reached")
                                 break
 
                             if data['model-type'] == 'emotions-model':
@@ -478,33 +469,31 @@ def collect_yt_channel_comments(data):
                                     'data1': int(results[0]), 'data2': int(results[1]), 
                                     'data3': int(results[2]), 'data4': int(results[3]),
                                     'data5': int(results[4]), 'data6': int(results[5]),
-                                    'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                    'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                                 
                                 
                             
                             elif data['model-type'] == 'toxicity-model':
-                                print(results)
+                              
                                 results[inferenceFunctions.toxicity_inference(binary_toxic_model_pipeline, yt_functions.clean_str(commentThread['snippet']['topLevelComment']['snippet']['textOriginal']))] += 1
                                 socketio.emit('resultsofInference', {'total-processed': sum(results), 
                                     'data1': int(results[0]), 'data2': int(results[1]), 
-                                        'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                        'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                             else:
-                                print(results)
+                               
                                 results[inferenceFunctions.sentiment_classification_inference(neg_neutral_positive_model_pipeline, yt_functions.clean_str(commentThread['snippet']['topLevelComment']['snippet']['textOriginal']))] += 1
                                 socketio.emit('resultsofInference', {'total-processed': sum(results), 
                                     'data1': int(results[0]), 'data2': int(results[1]), 'data3': int(results[2]),  
-                                        'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                        'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
 
                             
                             
                             
-                        except Exception as e:
-                            print(e)
-                            print("Couldn't get comment")
+                        except Exception as e: 
                             pass
                     
                     if commentThread_next_page_token is None:
-                        print("Go on to next video")
+                      
                         break
 
                 if continue_with_processing == False:
@@ -518,7 +507,7 @@ def collect_yt_channel_comments(data):
         t1.start()
 
         t1.join()
-        print("Updated Channel Data")
+       
 
         cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM yt_channels WHERE pos = ?", (data['key']))
         has_been_processed = cursor.fetchone()
@@ -537,10 +526,10 @@ def collect_yt_channel_comments(data):
             cursor.execute("UPDATE yt_channels SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
 
             if has_been_processed[1] == 0:
-                print("Hasn't been processed")
+               
                 cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], sum(results)))
             else:
-                print(results)
+                
                 cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
 
         elif data['model-type'] == "sentiment-model":
@@ -548,11 +537,11 @@ def collect_yt_channel_comments(data):
             cursor.execute("UPDATE yt_channels SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
 
             if has_been_processed[2] == 0:
-                print("Hasn't been processed")
+                
                 cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('YT', data['key'], results[0], results[1], results[2], sum(results) ))
 
             else:
-                print(results)
+                
                 cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
         
         sqliteConnection.commit()
@@ -565,9 +554,7 @@ def collect_yt_channel_comments(data):
     elif data['framework'] == 'RD':
 
 
-        print("Reddit Is being Utilized")
-
-        print(f"This is the data that daddy recieved: {data}")
+       
         
 
         sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
@@ -598,10 +585,10 @@ def collect_yt_channel_comments(data):
 
                         @socketio.on('endDataInference')
                         def endAPI_Processing():
-                            print("\n\n\n-----------------------------------------\nUser's ended it\n-----------------------------------------\n\n\n")
+                           
                             global continue_with_processing
                             continue_with_processing = False
-                            socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'})
+                            socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'}, to=sid_id)
 
                         if continue_with_processing == False:
                             break
@@ -610,16 +597,16 @@ def collect_yt_channel_comments(data):
                         if len(comments_batch) <= 99 and idx == (len(comments_batch) - 1): 
                             #If this is the final comment in the comment batch
                             #and if the comment batch is less than 100 (meaning that there is no next batch)
-                            print("Ending Process")
+                         
                             
-                            socketio.emit("API_Error", {'text': 'No More Comments', 'num-collected': sum(results)})
+                            socketio.emit("API_Error", {'text': 'No More Comments', 'num-collected': sum(results)}, to=sid_id)
                             #socketio.emit('requestsInProgress', {'framework': 'RD', 'name': reddit_data['data'][database_id]['title'], 'done': True, 'num-requests-done': len(text)})       
                             
                             continue_with_processing = False
                             break
 
                         if sum(results) == data['limit']:
-                            print("Limit Has Been Reached")
+                         
                             
                             #socketio.emit('requestsInProgress', {'framework': 'RD', 'name': reddit_data['data'][database_id]['title'], 'done': False, 'num-requests-done': len(text)})       
                             
@@ -635,7 +622,7 @@ def collect_yt_channel_comments(data):
                                 'data1': int(results[0]), 'data2': int(results[1]), 
                                 'data3': int(results[2]), 'data4': int(results[3]),
                                 'data5': int(results[4]), 'data6': int(results[5]),
-                                'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                                 
                                 
                             
@@ -643,18 +630,17 @@ def collect_yt_channel_comments(data):
                             results[inferenceFunctions.toxicity_inference(binary_toxic_model_pipeline, yt_functions.clean_str(comment))] += 1
                             socketio.emit('resultsofInference', {'total-processed': sum(results), 
                                 'data1': int(results[0]), 'data2': int(results[1]), 
-                                    'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                    'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                         else:
                             results[inferenceFunctions.sentiment_classification_inference(neg_neutral_positive_model_pipeline, yt_functions.clean_str(comment))] += 1
                             socketio.emit('resultsofInference', {'total-processed': sum(results), 
                                 'data1': int(results[0]), 'data2': int(results[1]), 'data3': int(results[2]),  
-                                    'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)})
+                                    'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                         #socketio.emit('requestsInProgress', {'framework': 'RD', 'name': reddit_data['data'][database_id]['title'], 'total-requests': data['num'], 'num-requests-done': comment_counter, 'done': False})    
 
-                        print(results)
-
+                       
                     if len(kinds) == 0:
-                        print("No Comments")
+                       
                         #socketio.emit('requestsInProgress', {'framework': 'RD', 'name': reddit_data['data'][database_id]['title'], 'done': True, 'num-requests-done': len(text)})
                         break 
 
@@ -663,27 +649,26 @@ def collect_yt_channel_comments(data):
                     params['count'] = sum(results)
 
                 else:
-                    print("\n\nThe processing has been cut off...\n\n")
+                    
                     break
         
         t1 = threading.Thread(target=rd_comment_collector)   
         t1.start()
 
         t1.join()
-        print("Updated Forum Data")
+       
         cursor.execute(f"SELECT usedemotionsmodel, usedtoxicitymodel, usedsentimentmodel FROM reddit_data WHERE pos = ?", (data['key']))
         has_been_processed = cursor.fetchone()
-        print(has_been_processed)
-        
+      
         if data['model-type'] == "emotions-model":
             cursor.execute("UPDATE reddit_data SET anyProcessed = 1 WHERE pos = ?", (data['key'], ))
             cursor.execute("UPDATE reddit_data SET usedemotionsmodel = 1 WHERE pos = ?", (data['key'], ))
             
             if has_been_processed[0] == 0:
-                print("Hasn't been processed")
+                
                 cursor.execute("INSERT INTO emotionsDetectorRes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results)))
             else:
-                print(results)
+               
                 cursor.execute("UPDATE emotionsDetectorRes SET anger = ?, fear = ?, disgust = ?, neutral = ?, joy = ?, sadness = ?, surprise = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], results[3], results[4], results[5], results[6], sum(results), data['key']))
         
         elif data['model-type'] == "toxicity-model":
@@ -691,10 +676,10 @@ def collect_yt_channel_comments(data):
             cursor.execute("UPDATE reddit_data SET usedtoxicitymodel = 1 WHERE pos = ?", (data['key'], ))
             
             if has_been_processed[1] == 0:
-                print("Hasn't been processed")
+                
                 cursor.execute("INSERT INTO toxicityMeasurerRes VALUES (?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], sum(results)))
             else:
-                print(results)
+                
                 cursor.execute("UPDATE toxicityMeasurerRes SET toxic = ?, neutral = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], sum(results), data['key']))
 
         elif data['model-type'] == "sentiment-model":
@@ -702,11 +687,11 @@ def collect_yt_channel_comments(data):
             cursor.execute("UPDATE reddit_data SET usedsentimentmodel = 1 WHERE pos = ?", (data['key'], ))
             
             if has_been_processed[2] == 0:
-                print("Hasn't been processed")
+               
                 cursor.execute("INSERT INTO sentimentClassifierRes VALUES (?, ?, ?, ?, ?, ?)", ('RD', data['key'], results[0], results[1], results[2], sum(results)))
 
             else:
-                print(results)
+                
                 cursor.execute("UPDATE sentimentClassifierRes SET negative = ?, neutral = ?, positive = ?, commentnum = ? WHERE pos = ?", (results[0], results[1], results[2], sum(results), data['key']))
         
         
@@ -723,7 +708,7 @@ def collect_yt_channel_comments(data):
 
 @socketio.on("addToDatabase")
 def add_to_database(data): 
-    print("In Function")
+   
     sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/database.db")
     cursor = sqliteConnection.cursor()
 
@@ -736,7 +721,7 @@ def add_to_database(data):
         else:
             new_id = last_id[0] + 1
         
-        print("Uploading New Data....\n--------------\n\n")
+       
             
     
         cursor.execute("INSERT INTO yt_channels (pos, title, uploadsid, channelid, usedsentimentmodel, usedtoxicitymodel, usedemotionsmodel, anyprocessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (new_id, data['title'], data['upload-id'], data['channel-id'], 0, 0, 0, 0))
@@ -747,8 +732,7 @@ def add_to_database(data):
     elif data['framework'] == 'RD':
         cursor.execute("SELECT pos FROM reddit_data ORDER BY pos DESC LIMIT 1")
         last_id = cursor.fetchone()
-        print("Here's the last row")
-        print(last_id)
+      
         
         if not last_id:
             new_id = 1
@@ -765,35 +749,32 @@ def add_to_database(data):
             
    
 @socketio.on("connect")
-def connect(auth):  
-    client_list.append(request.sid) #Add Request Sid
-    print(f"\n\n\n\nCLIENT LIST: {client_list}\n\n\n\n") #Get client list
-    
-    time.sleep(grace_period) #Let unused conenctions die down
-    if len(client_list) > 1: #Loop over extra clients
-        for extra_client_sid in client_list[1:]:
-            #Functionality
-            pass
+def connect():  
+    client_list.append(request.sid)
+
+   
+        
+        
+
 
 @socketio.on('disconnect') #If the socket disconnects
 def disconnect():
-    client_list.remove(request.sid) #Remove sid
-    print(f"\n\n\n\nCLIENT LIST: {client_list}\n\n\n\n")
-
-    global continue_with_processing #End API Processing Thread (if it exists)
+    global continue_with_processing
     continue_with_processing = False
-    print("\n\n\n\nCLIENT DISCONNECTED\n\n\n")
 
+    client_list.remove(request.sid)
+    
     time.sleep(grace_period) #If no new clients connect within three second period
+   
     if len(client_list) == 0: #End server
         print("\n\nNO MORE CLIENTS...ENDING SERVER\n\n")
         os.kill(os.getpid(), signal.SIGINT)
 
-    
+   
     
 
 #btn btn-outline-primary btn-lg
 if __name__ == '__main__':
     print("\n\n----------------------------\nRunning App")
     print("--------------------\n")
-    socketio.run(app, debug=True)
+    socketio.run(app)
