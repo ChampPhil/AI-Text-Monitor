@@ -57,20 +57,21 @@
   
   <h2 class="text-center" style="margin-top:20px; margin-bottom: 25px;"> Percentage Analyzed: <b id='percentage-analyzed' style="color: purple;">0%</b></h2>
   
-  <div class="progress" role="progressbar" style="width: 25%; margin: auto; margin-bottom: 50px;">
+  <div class="progress" role="progressbar" style="width: 25%; margin: auto; margin-bottom: 25px;">
     <div class="progress-bar progress-bar-striped progress-bar-animated" id="progress-of-text-inference" style="width: 0%"></div>
   </div>
 
   <div class="row">
-    <div class="col-2"></div>
+    <div class="col-1"></div>
 
-    <div class="col-8">
+    <div class="col-5">
       <div id="bar-graph-div"></div>
     </div>
    
-
-    <div class="col-2"></div>
-    
+    <div class="col-1"></div>
+    <div class="col-5">
+      <div id="pie-graph-div"></div>
+    </div>
   </div>
   
 
@@ -192,21 +193,35 @@
      
       }];
 
-
-      console.log(plot_values)
-      var layout = {
-        width: vw * 70,
+      var bar_graph_layout = {
+        width: vw * 50,
         height: vh * 65,
-        title: 'Live Inference Results',
         
+    
         xaxis: {
           position: 0.5
         },
         bargap: 0.15
       }
 
-      Plotly.newPlot('bar-graph-div', plot_values, layout);
+      Plotly.newPlot('bar-graph-div', plot_values, bar_graph_layout);
+      var pie_data = [{
+        type: "pie",
+        values: starting_values,
+        labels: metrics,
+        textinfo: "label+percent",
+        insidetextorientation: "radial",
+        automargin: true
+      }]
 
+      var pie_chart_layout = [{
+        
+        height: vh * 60,
+        width: vw * 40,
+        
+      }]
+
+      Plotly.newPlot('pie-graph-div', pie_data, pie_chart_layout)
       document.getElementById('location-of-sign').innerText = "";
       document.getElementById("usedsentimentmodel-btn").disabled = true;    
       document.getElementById("usedtoxicitymodel-btn").disabled = true;  
@@ -253,10 +268,11 @@
         //data[data{i+1}] -> first num
         console.log("Redrawing Results...")
         plot_values[0].x = data['current-results']
+        pie_data[0].values = data['current-results']
         
         
         Plotly.redraw('bar-graph-div')
-          
+        Plotly.redraw('pie-graph-div')
         
       })
 
