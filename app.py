@@ -41,7 +41,7 @@ dir_name = os.path.dirname(os.path.abspath(__file__))
 
 
 #Num of seconds app should wait for new clients to connect, after this, if no clients, then shutdown app
-grace_period = 3.5
+grace_period = 5
     
 #More Intialization
 app = Flask(__name__) #Make an app object
@@ -162,8 +162,10 @@ def view_inference_results(media_type, database_id):
     inference_res = []
 
     special_labels = [["Negative", "Neutral", "Positive"],
-           ["Toxic", "Non-Toxic"], #The label for the database is toxic, neutral - so that's why its like that here
-           ["Passion/Anger", "disgust", 'Concern/Fear', 'Joy', 'Neutral', 'Sadness', 'Surprise/Questioning']]
+           ["Toxic", "Non-Toxic"], #The label order for the database.db is toxic, neutral - so that's why its like that here
+           #Even though the model itself outputs labels in the [non-toxic, toxic]
+           ["Passionate", "Disgust", 'Concern', 'Joy', 'Neutral', 'Sadness', 'Questioning']]
+
     
     comments_analyzed_for_each_model = []
 
@@ -465,11 +467,8 @@ def collect_yt_channel_comments(data):
                             if data['model-type'] == 'emotions-model':
                                 results[inferenceFunctions.emotions_inference(emotions_detector_model_pipeline, yt_functions.clean_str(commentThread['snippet']['topLevelComment']['snippet']['textOriginal']))] += 1
 
-                                socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 
-                                    'data3': int(results[2]), 'data4': int(results[3]),
-                                    'data5': int(results[4]), 'data6': int(results[5]),
-                                    'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                socketio.emit('resultsofInference', {'total-processed': sum(results), 'current-results': results, 
+                                     'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                                 
                                 
                             
@@ -477,14 +476,12 @@ def collect_yt_channel_comments(data):
                               
                                 results[inferenceFunctions.toxicity_inference(binary_toxic_model_pipeline, yt_functions.clean_str(commentThread['snippet']['topLevelComment']['snippet']['textOriginal']))] += 1
                                 socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 
-                                        'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                    'current-results': results, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                             else:
                                
                                 results[inferenceFunctions.sentiment_classification_inference(neg_neutral_positive_model_pipeline, yt_functions.clean_str(commentThread['snippet']['topLevelComment']['snippet']['textOriginal']))] += 1
                                 socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                    'data1': int(results[0]), 'data2': int(results[1]), 'data3': int(results[2]),  
-                                        'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                    'current-results': results, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
 
                             
                             
@@ -619,23 +616,18 @@ def collect_yt_channel_comments(data):
                             results[inferenceFunctions.emotions_inference(emotions_detector_model_pipeline, yt_functions.clean_str(comment))] += 1
 
                             socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                'data1': int(results[0]), 'data2': int(results[1]), 
-                                'data3': int(results[2]), 'data4': int(results[3]),
-                                'data5': int(results[4]), 'data6': int(results[5]),
-                                'data7': int(results[6]), 'num-plots': 7, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                 'current-results': results, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                                 
                                 
                             
                         elif data['model-type'] == 'toxicity-model':
                             results[inferenceFunctions.toxicity_inference(binary_toxic_model_pipeline, yt_functions.clean_str(comment))] += 1
                             socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                'data1': int(results[0]), 'data2': int(results[1]), 
-                                    'num-plots': 2, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                 'current-results': results, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                         else:
                             results[inferenceFunctions.sentiment_classification_inference(neg_neutral_positive_model_pipeline, yt_functions.clean_str(comment))] += 1
                             socketio.emit('resultsofInference', {'total-processed': sum(results), 
-                                'data1': int(results[0]), 'data2': int(results[1]), 'data3': int(results[2]),  
-                                    'num-plots': 3, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
+                                 'current-results': results, 'percentage-processed': round((sum(results)/data['limit']) * 100, 1)}, to=sid_id)
                         #socketio.emit('requestsInProgress', {'framework': 'RD', 'name': reddit_data['data'][database_id]['title'], 'total-requests': data['num'], 'num-requests-done': comment_counter, 'done': False})    
 
                        
@@ -750,7 +742,10 @@ def add_to_database(data):
    
 @socketio.on("connect")
 def connect():  
+    global client_list
     client_list.append(request.sid)
+    print("Connected")
+    print(client_list)
 
    
         
@@ -759,16 +754,23 @@ def connect():
 
 @socketio.on('disconnect') #If the socket disconnects
 def disconnect():
+    global client_list
     global continue_with_processing
-    continue_with_processing = False
 
+    continue_with_processing = False
+    
     client_list.remove(request.sid)
     
     time.sleep(grace_period) #If no new clients connect within three second period
    
+
+    """
     if len(client_list) == 0: #End server
         print("\n\nNO MORE CLIENTS...ENDING SERVER\n\n")
         os.kill(os.getpid(), signal.SIGINT)
+    """
+    
+    
 
    
     

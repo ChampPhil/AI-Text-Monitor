@@ -6,6 +6,7 @@
   {% include 'nav.html' %}
   <img class="img-fluid"id="banner"src="/static/banner.jpg">
   <div class="container">
+      <div id="pull-vw-and-vh-values" style="width: 1vw; height: 1vh"></div>
       <h1 class="text-center border-bottom" style="margin-bottom:20px;"> Stored Data Analyzer</h1>  
       <h2 class="text-center" style="margin-top:5vh; margin-bottom: 5vh;" id="selected_yt_channel"> Selected <b style="color:yellow;">{{ prefix }}</b>: <b style="color: red;">{{ results[0] }}</b></h2></h2>
 
@@ -43,9 +44,9 @@
     </div>                                                                        
     <div class="col-2" style="margin-top: 5vh;">
       {% if results[3] == 0 %}
-        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passion/Anger', 'Concern/Fear', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Surprise/Questioning'], 'emotions-model')" class="btn btn-warning btn-lng"> Analyze Emotions </button>
+        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passionate', 'Concern', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Questioning'], 'emotions-model')" class="btn btn-warning btn-lng"> Analyze Emotions </button>
       {% else %}
-        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passion/Anger', 'Concern/Fear', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Surprise/Questioning'], 'emotions-model')" class="btn btn-success btn-lng"> Analyze Emotions </button>
+        <button type="submit"  style="margin-bottom: 10px; margin-top: 8px;" id="usedemotionsmodel-btn" onclick="startAnalyzing(['Passionate', 'Concern', 'Disgust', 'Neutral', 'Joy', 'Sadness', 'Questioning'], 'emotions-model')" class="btn btn-success btn-lng"> Analyze Emotions </button>
       {% endif %}
       </div> 
 
@@ -61,45 +62,33 @@
   </div>
 
   <div class="row">
+    <div class="col-2"></div>
+
+    <div class="col-8">
+      <div id="bar-graph-div"></div>
+    </div>
+   
+
+    <div class="col-2"></div>
+    
+  </div>
+  
+
+
+  <div class="row" >
     <div class="col-5" style="margin-top: 50px;"></div>
     <div class="col-2">
       <button type="button" style="margin-bottom: 25px;" id="the-button-to-end-inference" onclick="forceEnd()" class="btn btn-lg btn-danger">End Inference</button>
     </div> 
     <div class="col-5"></div>
-
-    
-
-
-
   </div>
   
+  <h2 style="text-align: center;" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
+   
 
   
-  <div class="row" id="grand-container">
-    <div class="col-2"></div>
-    <h2 class="col-3 data-label"id="data1" ></h2>
-    <h2 class="col-3 data-label" id="data2"></h2>
-    <h2 class="col-3 data-label" style="margin-bottom: 30px" id="data3"></h2>
-    <div class="col-1" ></div>
-
-    <div class="col-2"></div>
-    <h2 class="col-3 data-label"  id="data4" ></h2>
-    <h2 class="col-3 data-label"  id="data5" ></h2>
-    <h2 class="col-3 data-label" style="margin-bottom: 30px;"id="data6"></h2>
-    <div class="col-1" ></div>
-
-    <div class="col-5"></div>
-    <h2 class="col-2 data-label"  id="data7"></h2>
-    <div class="col-5"></div>
-    
-    
-    <h2 class="col-4" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
-  
-  </div>  
-
-  
-
-  <script type="text/javascript">
+  <script src="https://cdn.plot.ly/plotly-2.28.0.min.js"></script>
+  <script>
     var socketio = io();
 
     socketio.on("redirectTab", (data) => {
@@ -113,6 +102,10 @@
      
        
     })
+
+    var pull_vh_vw_values = document.getElementById("pull-vw-and-vh-values")
+    var vw = pull_vh_vw_values.getBoundingClientRect().width
+    var vh = pull_vh_vw_values.getBoundingClientRect().height
 
     function endServer() {
       socketio.emit('endServer') 
@@ -165,6 +158,7 @@
     
     function startAnalyzing(metrics, model_type) { 
       api_error_occured_so_end_processing = false; 
+
       if( document.getElementById('num_text_input').value == ''   )  {
         document.getElementById('text-to-warn-user').innerText = 'Please input a comment limit first!'
         return 
@@ -172,25 +166,46 @@
 
       document.getElementById('text-to-warn-user').innerText = ''
 
-      document.getElementById('grand-container').innerHTML = `
-      <div class="col-2"></div>
-      <h2 class="col-3 data-label"id="data1" ></h2>
-      <h2 class="col-3 data-label" id="data2"></h2>
-      <h2 class="col-3 data-label" style="margin-bottom: 30px" id="data3"></h2>
-      <div class="col-1" ></div>
+      var starting_values =  metrics.map((value) => 0)
+      var bar_color = null;
 
-      <div class="col-2"></div>
-      <h2 class="col-3 data-label" class="data-label" id="data4" ></h2>
-      <h2 class="col-3 data-label" class="data-label" id="data5" ></h2>
-      <h2 class="col-3 data-label" style="margin-bottom: 30px;" class="data-label" id="data6"></h2>
-      <div class="col-1" ></div>
+      if (model_type == "sentiment-model" ) {
+        bar_color = 'rgb(240, 237, 65)'
+      } else if (model_type == 'toxicity-model') {
+        bar_color = 'rgb(228, 123, 65)'
+      } else {
+        bar_color = 'rgb(143, 207, 206)'
+      }
+      var plot_values = [{
+        type: 'bar',
+        x: starting_values,
+        y: metrics,
+        orientation: 'h',
+        marker: {
+          color: bar_color,
+          opacity: 0.67,
+          line: {
+            color: 'rgb(8,48,107)',
+            width: 1.5
+          }
+        }
+     
+      }];
 
-      <div class="col-5"></div>
-      <h2 class="col-2 data-label" class="data-label" id="data7"></h2>
-      <div class="col-5"></div>
-            
-      <h2 class="col-4" id="location-of-sign" style="color: blue; margin: auto; margin-top: 35px;"></h2>
-      `
+
+      console.log(plot_values)
+      var layout = {
+        width: vw * 70,
+        height: vh * 65,
+        title: 'Live Inference Results',
+        
+        xaxis: {
+          position: 0.5
+        },
+        bargap: 0.15
+      }
+
+      Plotly.newPlot('bar-graph-div', plot_values, layout);
 
       document.getElementById('location-of-sign').innerText = "";
       document.getElementById("usedsentimentmodel-btn").disabled = true;    
@@ -210,9 +225,7 @@
       socketio.emit('runDataInfernece', {'key': results[results.length - 1], 'limit': Number(document.getElementById('num_text_input').value), 'framework': results[results.length - 2], 'model-type': model_type});
 
       
-      for (let i = 0; i < metrics.length; i++) {
-        document.getElementById(`data${i+1}`).innerHTML = `${metrics[i]}: <b class="data-number" id="data-number${i+1}"></b>` 
-      }
+     
       
     
       socketio.on("resultsofInference", (data) => { 
@@ -226,8 +239,7 @@
         document.getElementById('progress-of-text-inference').style.width = `${data['percentage-processed']}%`
         document.getElementById('progress-of-text-inference').innerText = `${data['percentage-processed']}%`
 
-        console.log("Here's the current percent")
-        console.log(data['percentage-processed'])
+       
         
 
         if (data['percentage-processed'] == 100) {
@@ -237,11 +249,15 @@
 
         }
 
-        for (let i = 0; i < data['num-plots']; i++)  {
-          var percent = Math.round((data[`data${i+1}`]/data['total-processed']) * 100)
-          document.getElementById(`data-number${i+1}`).innerText = `${percent}%`
+        
+        //data[data{i+1}] -> first num
+        console.log("Redrawing Results...")
+        plot_values[0].x = data['current-results']
+        
+        
+        Plotly.redraw('bar-graph-div')
           
-        }
+        
       })
 
 
