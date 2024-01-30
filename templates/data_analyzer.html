@@ -95,13 +95,11 @@
     socketio.on("redirectTab", (data) => {
       console.log("Being Triggered")
       if (data['url'] == 'None') {
-        temp_window = window.open('/', '_self')
-        temp_window.close()
-      }
-
-      window.location.href =  data['url']
-     
-       
+        window.open("https://bing.com", '_self')
+          
+      } else {
+        window.location.href =  data['url']
+      }   
     })
 
     var pull_vh_vw_values = document.getElementById("pull-vw-and-vh-values")
@@ -110,8 +108,6 @@
 
     function endServer() {
       socketio.emit('endServer') 
-      temp_window = window.open('/', '_self')
-      temp_window.close()  
     }
     
     var results = {{ results|tojson }};

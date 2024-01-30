@@ -6,6 +6,7 @@
   {% include 'nav.html' %}    
   
   <img class="img-fluid"id="banner"src="/static/banner.jpg">
+  <div id="pull-vw-and-vh-values" style="width: 1vw; height: 1vh"></div>
   <div class="container border-bottom" style="margin-bottom: 25px;">
       <h1 class="text-center" style="margin-bottom:20px;"> Stored Data Analyzer</h1>  
       <h2 class="text-center" style="margin-top:5vh; margin-bottom: 5vh;" id="selected_yt_channel"> Selected <b style="color:yellof;"> {{ prefix }} </b>: <b style="color: red;"> {{ title[0] }}</b></h2></h2>
@@ -61,19 +62,16 @@
     socketio.on("redirectTab", (data) => {
       console.log("Being Triggered")
       if (data['url'] == 'None') {
-        temp_window = window.open('/', '_self')
-        temp_window.close()
-      }
-
-      window.location.href =  data['url']
-     
-       
+        window.open("https://bing.com", '_self')
+          
+      } else {
+        window.location.href =  data['url']
+      }   
     })
 
     function endServer() {
       socketio.emit('endServer') 
-      temp_window = window.open('/', '_self')
-      temp_window.close()  
+  
     }
     
     var labels = {{ labels|tojson }};
@@ -82,7 +80,11 @@
 
     var inference_res = {{ inference_res|tojson }};
 
-    var comments_analyzed_for_each_model = {{ comments_analyzed_for_each_model|tojson }}
+    var comments_analyzed_for_each_model = {{ comments_analyzed_for_each_model|tojson }};
+
+    var pull_vh_vw_values = document.getElementById("pull-vw-and-vh-values")
+    var vw = pull_vh_vw_values.getBoundingClientRect().width
+    var vh = pull_vh_vw_values.getBoundingClientRect().height
 
     for (var [index, model_res] of inference_res.entries()) {
       if (model_res.length == 0) {
@@ -94,35 +96,82 @@
         `
       } else {
           document.getElementById(`${list_of_container_ids[index]}`).innerHTML = `
-              <div class="col-2" ></div>
-              <h2 class="col-3 data-label"id="${list_of_container_ids[index]}-data1" ></h2>
-              <h2 class="col-3 data-label" id="${list_of_container_ids[index]}-data2"></h2>
-              <h2 class="col-3 data-label" style="margin-bottom: 30px" id="${list_of_container_ids[index]}-data3"></h2>
-              <div class="col-1" ></div>
+          <div class="row">
+            <div class="col-1"></div>
 
-              <div class="col-2"></div>
-              <h2 class="col-3 data-label" id="${list_of_container_ids[index]}-data4" ></h2>
-              <h2 class="col-3 data-label"  id="${list_of_container_ids[index]}-data5" ></h2>
-              <h2 class="col-3 data-label" style="margin-bottom: 30px;" id="${list_of_container_ids[index]}-data6"></h2>
-              <div class="col-1" ></div>
-
-              <div class="col-5"></div>
-              <h2 class="col-2 data-label"  id="${list_of_container_ids[index]}-data7"></h2>
-              <div class="col-5"></div>
+            <div class="col-5">
+              <div id="${list_of_container_ids[index]}-bar-graph-div"></div>
+            </div>
+          
+            <div class="col-1"></div>
+            <div class="col-5">
+              <div id="${list_of_container_ids[index]}-pie-graph-div"></div>
+            </div>
+          </div>
               `
               
-        for (var [i, result] of model_res.entries())
+          var starting_values = model_res
+          var bar_color = null;
 
-          document.getElementById(`${list_of_container_ids[index]}-data${i+1}`).innerHTML = `${labels[index][i]}: <b class="data-number">${result}%</b>`
+          if (list_of_container_ids[index] == "sentimentClassifierRes" ) {
+            bar_color = 'rgb(240, 237, 65)'
+          } else if (list_of_container_ids[index] == "toxicityMeasurerRes") {
+            bar_color = 'rgb(228, 123, 65)'
+          } else {
+            bar_color = 'rgb(143, 207, 206)'
+          }
+          var plot_values = [{
+            type: 'bar',
+            x: starting_values,
+            y: labels[index],
+            orientation: 'h',
+            marker: {
+              color: bar_color,
+              opacity: 0.67,
+              line: {
+                color: 'rgb(8,48,107)',
+                width: 1.5
+              }
+            }
+          
+          }];
 
-        }
+          var bar_graph_layout = {
+            width: vw * 50,
+            height: vh * 65,
+            
+        
+            xaxis: {
+              position: 0.5
+            },
+            bargap: 0.15
+          }
+
+          Plotly.newPlot(`${list_of_container_ids[index]}-bar-graph-div`, plot_values, bar_graph_layout);
+          var pie_data = [{
+            type: "pie",
+            values: starting_values,
+            labels: labels[index],
+            textinfo: "label+percent",
+            insidetextorientation: "radial",
+            automargin: true
+          }]
+
+          var pie_chart_layout = [{
+            
+            height: vh * 60,
+            width: vw * 40,
+            
+          }]
+
+          Plotly.newPlot(`${list_of_container_ids[index]}-pie-graph-div`, pie_data, pie_chart_layout)
 
         
 
           
+        }
+    
       }
-    
-    
 
     
     

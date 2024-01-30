@@ -104,7 +104,7 @@ def hello_world():
 
     sqliteConnection.close()
 
-   
+    
 
     return render_template('home.html', yt_channels=yt_channels)
 
@@ -172,14 +172,14 @@ def view_inference_results(media_type, database_id):
     for index, database_name in enumerate(database_names):
 
         if has_been_processed[index] != 0:
-           
+            
             cursor.execute(f"SELECT * FROM {database_name} WHERE type = ? AND pos = ?", (media_type, int(database_id)))
             results = cursor.fetchone()
-            
+            print(results)
 
-            percentages = [round((result/sum(results[2:-1])) * 100) for result in results[2:-1]] #Change This to 2:-1
+         
 
-            inference_res.append(percentages)
+            inference_res.append(results[2:-1])
             comments_analyzed_for_each_model.append(results[-1])
             
         else:
@@ -764,11 +764,11 @@ def disconnect():
     time.sleep(grace_period) #If no new clients connect within three second period
    
 
-    """
+    
     if len(client_list) == 0: #End server
         print("\n\nNO MORE CLIENTS...ENDING SERVER\n\n")
         os.kill(os.getpid(), signal.SIGINT)
-    """
+
     
     
 
