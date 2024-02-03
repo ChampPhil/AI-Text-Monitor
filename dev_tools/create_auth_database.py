@@ -14,7 +14,8 @@ cursor.execute("""
                     clientid TEXT,
                     secrettoken TEXT,
                     redditusername TEXT,
-                    redditpassword TEXT              
+                    redditpassword TEXT,
+                    defaultsite TEXT              
                 );           
                 """)
 

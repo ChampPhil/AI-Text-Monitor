@@ -18,10 +18,14 @@
     <script>
         var socketio = io();
         
+        var redirect_site = {{ default_site|tojson }};
+
+    
         socketio.on("redirectTab", (data) => {
             console.log("Being Triggered")
             if (data['url'] == 'None') {
-                window.open("https://bing.com", '_self')
+                window.open(redirect_site, '_self')
+        
                 
             } else {
                 window.location.href =  data['url']

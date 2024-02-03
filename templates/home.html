@@ -5,6 +5,7 @@
 
 
   <link rel="stylesheet" href="/static/edit_channel_form.css">
+ 
   
 
 
@@ -15,13 +16,19 @@
     <h2 class="text-center mt-2 mb-4"> About Us</h2>
     <div class="row">
       <div class="col-6">
-        <p class="lead"> Toxicity has become a <b> SERIOUS </b> problem in the internet. I'm sure we've all seen some <i> very </i>
-          interesting language while scrolling. Enter the <b> Multi Ulitiy AI MONITOR</b>. This project was meant to be a solution to the problems plauging us all.
-          This front-end to back-end software employs Python (<i> a high-purpose general programming language</i>), A <i>Deep Neural Network</i>, and Flask (<i> A python library built to make easy web applications</i>)
-          to return real-time, high-quality stats to you on the overall toxicity present in a YT channel.   
+        <p class="lead"> 
+          The AI Text Monitor allows for the user to process an indivual piece of text and analyze 
+          <ul class="lead">
+            <li> Whether it's "toxic" or "non-toxic"</li>
+            <li> Whether it's negative, neutral, or positive</li>
+            <li> Whether its Passionate/Angry, Concerned/Fearful, Disgusted, Neutral, Joyful, Sad, or Surprised</li>
+          </ul>
+          <h4 class="lead">On this page, you can add a YT Channel to the database for future analysis and inference!</h4>
           <br>
           <br>
-          <b>ENJOY!</b>
+        
+          <b class="lead">ENJOY!</b>
+        
         </p>
       </div>
       <div class="col-6">
@@ -35,6 +42,12 @@
 
     </div>
 
+    
+    
+    
+    
+    
+    
     <div style="margin-top: 20px;">
       {{ yt_data_displayer(yt_channels) }}
     </div>
@@ -78,11 +91,13 @@
   </div>
   <script>
     var socketio = io();
+    var redirect_site = {{ default_site|tojson }};
 
+    
     socketio.on("redirectTab", (data) => {
       console.log("Being Triggered")
       if (data['url'] == 'None') {
-        window.open("https://bing.com", '_self')
+        window.open(redirect_site, '_self')
   
           
       } else {
@@ -104,6 +119,8 @@
     function endAPI_Processing() {
       socketio.emit('endAPI_Processing', {'nothing': "nothing"})
     }
+
+    
 
     socketio.on('BasicInfoGotten', (data) => {
       if (data.framework === 'YT') {

@@ -10,11 +10,12 @@ print("You are editing the AUTH_DATABASE.")
 print("----------------------------------------------------------------------------")
 
 #Edit these values 
-youtube_api_key = "PUT THE YOUTUBE API KEY RIGHT HERE"
-reddit_client_id = "PUT THE CLIENT ID FOR THE REDDIT APP HERE"
-reddit_secret_token = "PUT THE SECRET TOKEN FOR THE REDDIT APP HERE"
-reddit_username = "PUT THE USERNAME OF YOUR REDDIT ACCOUNT HERE"
-reddit_password = "PUT THE PASSOWRD OF YOUR REDDIT ACCOUNT HERE"
+youtube_api_key = "AIzaSyAJy2ux4lZ2uAgGqpbDF8ewocSSMNum6Uk"
+reddit_client_id = "uEmlQgPzkxv7l7gESuDUag"
+reddit_secret_token = "xMuH8KjqLcg0Y2C39VYqCfW6LZ8ihw"
+reddit_username = "ChampPhil"
+reddit_password = "@Philip2010"
+default_site = "https://bing.com" 
 
 
 
@@ -55,7 +56,7 @@ cursor.execute("DELETE FROM user_data")
 
 
 
-cursor.execute("INSERT INTO user_data (ytkey, clientid, secrettoken, redditusername, redditpassword) VALUES (?, ?, ?, ?, ?)", (youtube_api_key, reddit_client_id, reddit_secret_token, reddit_username, reddit_password))
+cursor.execute("INSERT INTO user_data (ytkey, clientid, secrettoken, redditusername, redditpassword, defaultsite) VALUES (?, ?, ?, ?, ?, ?)", (youtube_api_key, reddit_client_id, reddit_secret_token, reddit_username, reddit_password, default_site))
 
 sqliteConnection.commit()
 

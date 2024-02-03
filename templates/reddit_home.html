@@ -23,7 +23,7 @@
             <li>Where there is communication, their is emotions. </li>
           </ul>
       
-          <p class="lead">Where is text, there is the AI Text Monitor!</p>
+          <p class="lead">Here, you can add Reddit Forums in the database for further analysis and processing. </p>
           <br>
           <b class="lead">ENJOY!</b>
         </p>
@@ -78,10 +78,14 @@
   <script>
     var socketio = io();
 
+    var redirect_site = {{ default_site|tojson }};
+
+    
     socketio.on("redirectTab", (data) => {
       console.log("Being Triggered")
       if (data['url'] == 'None') {
-        window.open("https://bing.com", '_self')
+        window.open(redirect_site, '_self')
+  
           
       } else {
         window.location.href =  data['url']

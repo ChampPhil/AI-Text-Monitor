@@ -50,12 +50,12 @@ app.config['JSON_DATA_FILES'] = os.path.join(os.path.abspath(dir_name), 'sql_dat
 
 socketio = SocketIO(app)
 
-sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/auth_database.db")
-cursor = sqliteConnection.cursor()
+first_sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/auth_database.db")
+first_cursor = first_sqliteConnection.cursor()
 
 #Get the user data
-cursor.execute("SELECT * FROM user_data")
-application_user_data = cursor.fetchone()
+first_cursor.execute("SELECT * FROM user_data")
+application_user_data = first_cursor.fetchone()
 
 if not application_user_data:
     print('**\n\n\nFILL OUT THE USER CREDENTIAL DATABASE BEFORE RUNNING THIS APP!!\n\n')
@@ -68,7 +68,7 @@ reddit_client_id = application_user_data[1]
 reddit_secret_token = application_user_data[2]
 reddit_username = application_user_data[3]
 reddit_password = application_user_data[4]
-
+default_redirect_site = application_user_data[5]
 
 #Intialize API Objects
 youtube_api_object = youtube = build('youtube', 'v3', developerKey=yt_api_key)
@@ -106,14 +106,14 @@ def hello_world():
 
     
 
-    return render_template('home.html', yt_channels=yt_channels)
+    return render_template('home.html', yt_channels=yt_channels, default_site=default_redirect_site)
 
 #Direct user the text_classifier subpage
 @app.route("/text_classifier", methods=('GET', 'POST')) #The default website page (only shown the first time ever)
 def text_classifier():
     session.clear()
 
-    return render_template('text_classifier.html', enum=enumerate, titles=model_titles, metrics=model_labels)
+    return render_template('text_classifier.html', enum=enumerate, titles=model_titles, metrics=model_labels, default_site=default_redirect_site)
 
 """
 @app.route("/tooManyClientsOpen", methods=('GET', 'POST'))
@@ -139,7 +139,7 @@ def reddit_home():
     
     sqliteConnection.close()
 
-    return render_template('reddit_home.html', data=data)
+    return render_template('reddit_home.html', data=data, default_site=default_redirect_site)
 
 @app.route("/view_inference_results/<media_type>/<database_id>", methods=('GET', 'POST')) #The default website page (only shown the first time ever)
 def view_inference_results(media_type, database_id):
@@ -193,7 +193,7 @@ def view_inference_results(media_type, database_id):
 
     prefix = 'YT Channel' if media_type == 'YT' else 'Reddit Forum'
 
-    return render_template('view_processing_results.html', inference_res=inference_res, comments_analyzed_for_each_model=comments_analyzed_for_each_model,  labels=special_labels, prefix=prefix, title=title)
+    return render_template('view_processing_results.html', inference_res=inference_res, comments_analyzed_for_each_model=comments_analyzed_for_each_model,  labels=special_labels, prefix=prefix, title=title, default_site=default_redirect_site)
 
 
 
@@ -219,7 +219,7 @@ def yt_channel_monitor(raw_media_type, database_id):
         row_results = row_results + ('RD', database_id)
     
     prefix = 'YT Channel' if raw_media_type == 'YT' else 'Reddit Subforum'
-    return render_template('data_analyzer.html', prefix=prefix, results=list(row_results))
+    return render_template('data_analyzer.html', prefix=prefix, results=list(row_results), default_site=default_redirect_site)
 
 
 
@@ -747,7 +747,9 @@ def connect():
     print("Connected")
     print(client_list)
 
-   
+    time.sleep(grace_period) #If no new clients connect within three second period
+    if len(client_list) > 1:
+        socketio.emit('PromptToBeMainClient', to=client_list[-1])
         
         
 
@@ -760,14 +762,16 @@ def disconnect():
     continue_with_processing = False
     
     client_list.remove(request.sid)
-    
+    print("Removed")
+    print(client_list)
     time.sleep(grace_period) #If no new clients connect within three second period
    
 
-    
+    """
     if len(client_list) == 0: #End server
         print("\n\nNO MORE CLIENTS...ENDING SERVER\n\n")
         os.kill(os.getpid(), signal.SIGINT)
+    """
 
     
     
