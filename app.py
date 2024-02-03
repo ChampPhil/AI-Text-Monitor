@@ -2,7 +2,6 @@
 
 from flask import Flask, render_template, send_from_directory, request, session, redirect, url_for, flash, copy_current_request_context
 from flask_socketio import join_room, leave_room, send, SocketIO, emit
-from colorama import Fore, Back, Style
 import numpy as np
 import signal
 import threading
@@ -12,12 +11,8 @@ import reddit_functions
 import sys
 import time
 import atexit  
-import random
-from string import ascii_uppercase
-from threading import Lock, Event, Thread
 import yt_functions
 import os
-import json
 import datetime
 import inferenceFunctions
 import sqlite3

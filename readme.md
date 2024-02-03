@@ -76,6 +76,9 @@ Setting Up Reddit API Key:
 
 **Installing Necessary Libraries**
 
+<ins>Make sure you are in the same directory as requirements.txt </ins>
+
+Run "pip install -r requirements.txt" or "pip3 install -r requirements.txt"
 
 ----------------------------------------------------------------------------------------------------------------------
 

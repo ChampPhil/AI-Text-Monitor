@@ -1,10 +1,4 @@
 from googleapiclient.discovery import build
-import googleapiclient
-import time
-import sys
-import os
-import json
-import re
 import cleantext
 from operator import itemgetter
 
