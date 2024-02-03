@@ -224,7 +224,7 @@ This Navbar allows you to switch between three pages:
 
    <ins>Each model is a multi-class classification model, not a multi-label classification model. </ins>
 
-   
+
    ![Getting Started](./readme_files/readme-pic21.png) 
-      - In the above instance, the model is 65% sure the text is labeled Passsion, 20% labeled Disgust, etc.
+      - In the above instance, the model is 65% sure the text is labeled Passsion, 20% sure the text is labeled labeled Disgust, etc.
       - It is NOT 65% Passionate, 20% Joy, etc (that's multi-label, not multi-class)
