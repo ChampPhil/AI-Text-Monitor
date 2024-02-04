@@ -1,11 +1,3 @@
-from scipy.special import softmax
-import numpy as np
-import tensorrt as trt
-import tensorflow as tf
-import json
-import onnxruntime
-import math
-import torch
 
 """
 class TextVectorizers():
@@ -32,8 +24,10 @@ def toxicity_inference(pipeline, text):
     try:
         output = pipeline(text)
         
+        """
         if output[0]['label'] == 'toxic':
             print(f"\nToxic text: {text}\n")
+        """
         return label_positions_dict[output[0]['label']]
         
         
@@ -49,6 +43,7 @@ def emotions_inference(pipeline, text):
         
         output = pipeline(text)
         
+        """
         if output[0]['label'] == 'joy':
             print(f"Joy text: {text}")
 
@@ -58,6 +53,7 @@ def emotions_inference(pipeline, text):
 
         if output[0]['label'] == 'disgust':
             print(f"Disgust text: {text}")
+        """
 
         return label_positions_dict[output[0]['label']]
         #If its 'anger', return 0
@@ -78,8 +74,10 @@ def sentiment_classification_inference(pipeline, text):
         output = pipeline(text)
         broken_label = output[0]['label'].split('_')
         pos = int(broken_label[-1])
+        """
         if pos == 0:
             print(f"Neg Text: {text}")
+        """
         
         return pos
     except:

@@ -742,24 +742,23 @@ def connect():
     print("Connected")
     print(client_list)
 
-    time.sleep(grace_period) #If no new clients connect within three second period
-    if len(client_list) > 1:
-        socketio.emit('PromptToBeMainClient', to=client_list[-1])
+    
         
         
 
 
 @socketio.on('disconnect') #If the socket disconnects
 def disconnect():
+    print("Removed")
     global client_list
     global continue_with_processing
 
     continue_with_processing = False
     
     client_list.remove(request.sid)
-    print("Removed")
+    
     print(client_list)
-    time.sleep(grace_period) #If no new clients connect within three second period
+   
    
 
     """
