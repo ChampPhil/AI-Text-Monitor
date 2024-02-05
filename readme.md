@@ -95,6 +95,8 @@ Run "pip install -r requirements.txt" or "pip3 install -r requirements.txt"
 
 ----------------------------------------------------------------------------------------------------------------------
 
+
+
 **Prepping your Browser For The Project**
  
 To allow the server to accurately redirect users upon termination, you must enable popups in your chosen browser. Use the following articles to enable pop-ups on this project for Google, Bing, or Firefox. 
@@ -107,6 +109,13 @@ To allow the server to accurately redirect users upon termination, you must enab
 
 
 ----------------------------------------------------------------------------------------------------------------------
+<br>
+<br>
+
+***Enter python3 app.py into your CLI to actually start up the project***
+
+<br>
+<br>
 
 **Detailed Breakdown of Each Aspect of Website**
 
