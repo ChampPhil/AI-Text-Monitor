@@ -23,13 +23,13 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipe
 
 
 #Intialize The Pretrained Hugging Face Transformer Models
-binary_toxic_model_pipeline = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier")
-neg_neutral_positive_model_pipeline = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment")
-emotions_detector_model_pipeline = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base")
+binary_toxic_model_pipeline = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier", device=0)
+neg_neutral_positive_model_pipeline = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", device=0)
+emotions_detector_model_pipeline = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", device=0)
 
-binary_toxic_model_pipeline_return_all_scores = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier", return_all_scores=True)
-neg_neutral_positive_model_pipeline_return_all_scores = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", return_all_scores=True)
-emotions_detector_model_pipeline_return_all_scores = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", return_all_scores=True)
+binary_toxic_model_pipeline_return_all_scores = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier", top_k=None)
+neg_neutral_positive_model_pipeline_return_all_scores = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", top_k=None)
+emotions_detector_model_pipeline_return_all_scores = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", top_k=None)
 
 #Make an absolute path to directory
 dir_name = os.path.dirname(os.path.abspath(__file__))
