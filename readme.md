@@ -37,6 +37,7 @@ and can be viewed at will.
 1. Navitage to the directory you want the AI_Text_Monitor/ to be in
 2. Run 'git clone https://github.com/ChampPhil/AI-Text-Monitor.git' in your Jetson Nano terminal 
 
+-----------------------------------------------------------------------------------------------
 
 **Before Running The Project**
 
