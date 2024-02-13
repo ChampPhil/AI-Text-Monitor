@@ -32,6 +32,11 @@ and can be viewed at will.
 6. After adding/deleting/running inference on a YT Channel or Reddit Forum, you have to reload the page for the changes to be visible.
 
 ----------------------------------------------------------------------------------------------------------------------
+**Pulling The Project From Github**
+
+1. Navitage to the directory you want the AI_Text_Monitor/ to be in
+2. Run 'git clone https://github.com/ChampPhil/AI-Text-Monitor.git' in your Jetson Nano terminal 
+
 
 **Before Running The Project**
 
