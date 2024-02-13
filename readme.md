@@ -82,8 +82,9 @@ Setting Up Reddit API Key:
 
 **Installing Necessary Libraries (make sure you have pip/pip3 installed beforehand)**
 
-<ins>Make sure you are in the same directory as requirements.txt </ins>
-<ins>Make sure you have at least Python 3.8 running on your system </ins>
+- Make sure you are in the same directory as requirements.txt
+- Have *least* Python 3.8 running on your system 
+- Make sure pip is upgraded to its latest version before installing
 
 Run "pip install -r requirements.txt" or "pip3 install -r requirements.txt"
 
