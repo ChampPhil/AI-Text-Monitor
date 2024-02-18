@@ -26,9 +26,9 @@ binary_toxic_model_pipeline = pipeline('text-classification', model=f"s-nlp/robe
 neg_neutral_positive_model_pipeline = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", device=0)
 emotions_detector_model_pipeline = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", device=0)
 
-binary_toxic_model_pipeline_return_all_scores = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier", top_k=None)
-neg_neutral_positive_model_pipeline_return_all_scores = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", top_k=None)
-emotions_detector_model_pipeline_return_all_scores = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", top_k=None)
+binary_toxic_model_pipeline_return_all_scores = pipeline('text-classification', model=f"s-nlp/roberta_toxicity_classifier", return_all_scores=True)
+neg_neutral_positive_model_pipeline_return_all_scores = pipeline('sentiment-analysis', model=f"cardiffnlp/twitter-roberta-base-sentiment", return_all_scores=True)
+emotions_detector_model_pipeline_return_all_scores = pipeline('text-classification', model=f"j-hartmann/emotion-english-distilroberta-base", return_all_scores=True)
 
 #Make an absolute path to directory
 dir_name = os.path.dirname(os.path.abspath(__file__))
@@ -44,8 +44,9 @@ app.config['JSON_DATA_FILES'] = os.path.join(os.path.abspath(dir_name), 'sql_dat
 
 socketio = SocketIO(app)
 
-app_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+app_dir = os.path.dirname(os.path.realpath(__file__))
 config_file_path = os.path.join(app_dir, 'sql_data', 'user_data.ini')
+
 
 if os.path.exists(config_file_path):
     pass
@@ -248,16 +249,19 @@ def runOneInference(data):
        
     if data['model-title'] == model_titles[0]: #If the model is 'Sentiment Model'
         results = neg_neutral_positive_model_pipeline_return_all_scores(data['text'])[0]
+        print(results)
         sendOutputDict(results, data['model-title'], model_labels[0])
         
       
 
     elif data['model-title'] == model_titles[1]: #If its ' Toxicty Measurer
         results = binary_toxic_model_pipeline_return_all_scores(data['text'])[0]
+        print(results)
         sendOutputDict(results, data['model-title'], model_labels[1])
 
     elif data['model-title'] == model_titles[2]:
         results = emotions_detector_model_pipeline_return_all_scores(data['text'])[0]
+        print(results)
         sendOutputDict(results, data['model-title'], model_labels[2])
 
 @socketio.on('getBasicInfo')
@@ -385,6 +389,7 @@ def collect_yt_channel_comments(data):
         def endAPI_Processing():
             global continue_with_processing
             continue_with_processing = False
+            print("Ended Processing due to User Request")
           
             socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'}, to = sid_id)
             return
@@ -452,6 +457,7 @@ def collect_yt_channel_comments(data):
                     
                         
                     if continue_with_processing == False:
+                        print("Beginning To Break")
                         break
 
 
@@ -585,6 +591,7 @@ def collect_yt_channel_comments(data):
                             socketio.emit("API_Error", {'text': 'User Ended Processing', 'num-collected': f'{sum(results)} comments analyzed'}, to=sid_id)
 
                         if continue_with_processing == False:
+                            print("Beginning To Break")
                             break
                         
 

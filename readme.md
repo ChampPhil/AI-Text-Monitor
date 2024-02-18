@@ -18,6 +18,7 @@ YouTube channel or Reddit Forum and then analyze X num of comments from that cha
 The percentages of this analysis (e.g., 10% toxic, 90% non-toxic) are stored in a back-end database 
 and can be viewed at will.
 
+See a demo at: https://youtu.be/QGIE4S1jxZI
 
 ----------------------------------------------------------------------------------------------------------
 
