@@ -49,13 +49,11 @@ except Exception as e:
     sys.exit()
 
 
-response = requests.get(config["USER-KEYS"]['default-site'])
-if response.status_code == 200:
-    pass
-else:
+try:
+    response = requests.get(config["USER-KEYS"]['default-site'])
+except:
     print('The default-site you inputted does not exist.')
     sys.exit()
-
 
 app_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 file_path = os.path.join(app_dir, 'sql_data', 'user_data.ini')
