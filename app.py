@@ -8,6 +8,7 @@ import threading
 import googleapiclient
 from googleapiclient.discovery import build
 import reddit_functions
+from configparser import ConfigParser
 import sys
 import time
 import atexit  
@@ -18,8 +19,6 @@ import inferenceFunctions
 import sqlite3
 import math
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
-
-
 
 
 #Intialize The Pretrained Hugging Face Transformer Models
@@ -45,25 +44,28 @@ app.config['JSON_DATA_FILES'] = os.path.join(os.path.abspath(dir_name), 'sql_dat
 
 socketio = SocketIO(app)
 
-first_sqliteConnection = sqlite3.connect(f"{app.config['JSON_DATA_FILES']}/auth_database.db")
-first_cursor = first_sqliteConnection.cursor()
+app_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+config_file_path = os.path.join(app_dir, 'sql_data', 'user_data.ini')
 
-#Get the user data
-first_cursor.execute("SELECT * FROM user_data")
-application_user_data = first_cursor.fetchone()
-
-if not application_user_data:
+if os.path.exists(config_file_path):
+    pass
+else:
     print('**\n\n\nFILL OUT THE USER CREDENTIAL DATABASE BEFORE RUNNING THIS APP!!\n\n')
 
     print("Shutting Down due to lack of credentials...")
     sys.exit()
 
-yt_api_key = application_user_data[0]
-reddit_client_id = application_user_data[1]
-reddit_secret_token = application_user_data[2]
-reddit_username = application_user_data[3]
-reddit_password = application_user_data[4]
-default_redirect_site = application_user_data[5]
+config = ConfigParser()
+config.read(config_file_path)
+
+config_data = config['USER-KEYS']
+
+yt_api_key = config_data['ytkey']
+reddit_client_id = config_data['client-id']
+reddit_secret_token = config_data['secret-token']
+reddit_username = config_data['reddit-username']
+reddit_password = config_data['reddit-password']
+default_redirect_site = config_data['default-site']
 
 #Intialize API Objects
 youtube_api_object = youtube = build('youtube', 'v3', developerKey=yt_api_key)
