@@ -4,4 +4,4 @@ Flask_SocketIO==5.3.6
 google_api_python_client==2.102.0
 numpy>=1.24
 Requests==2.31.0
-transformers==4.34.0
+transformers==4.36.0
