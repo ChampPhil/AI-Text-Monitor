@@ -18,46 +18,55 @@ config["USER-KEYS"]  = {
 
 }
 
-
-
-youtube = build('youtube', 'v3', developerKey=config['USER-KEYS']['ytkey'])
-reddit_auth = requests.auth.HTTPBasicAuth(config['USER-KEYS']['client-id'], config['USER-KEYS']['secret-token'])
-
-try:
-    res = youtube.search().list(part='snippet', type='channel', q='SSSniperWolf').execute()['items'] 
-except Exception as e:
-    print(e)
-    print("\n\nTHE YOUTUBE API KEY YOU PASSED WAS INVALID\n...\n\nEnding Python Script")
-    sys.exit()
-
-try:
-    test_data = {'grant_type': 'password',
-            'username':  config['USER-KEYS']['reddit-username'],
-            'password': config['USER-KEYS']['reddit-password']}
-
-    # setup our header info, which gives reddit a brief description of our app
-    test_headers = {'User-Agent': 'PhilipVDataProjectAPI/0.0.1'}
-
-    # send our request for an OAuth token
-    test_res = requests.post('https://www.reddit.com/api/v1/access_token',
-                        auth=reddit_auth, data=test_data, headers=test_headers)
-    
-    test_res.json()['access_token'] #If the auth_data is wrong, this will trigger an error
-except Exception as e:
-    print(e)
-    print("\n\nTHE REDDIT AUTH DATA YOU PASSED WAS INVALID\n...\n\nEnding Python Script")
-    sys.exit()
-
-
-try:
-    response = requests.get(config["USER-KEYS"]['default-site'])
-except:
-    print('The default-site you inputted does not exist.')
-    sys.exit()
-
 app_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 file_path = os.path.join(app_dir, 'sql_data', 'user_data.ini')
 
-with open(file_path, "w") as f:
-    config.write(f)
-    print("Done")
+if os.path.exists(file_path):
+    print("Config File is already created.....")
+    sys.exit()
+else:
+    
+    config['USER-KEYS']['ytkey'] = input("Youtube Key: ")
+    config['USER-KEYS']['client-id'] = input("Reddit App ClientId: ")
+    config['USER-KEYS']['secret-token'] = input("Reddit App Secret Token: ")
+    config['USER-KEYS']['reddit-username'] = input("Reddit Username:  ")
+    config['USER-KEYS']['reddit-password'] = input("Reddit Password:  ")
+    config['USER-KEYS']['default-site'] = input("Site which app.py should redirect to on termination:  ")
+
+    youtube = build('youtube', 'v3', developerKey=config['USER-KEYS']['ytkey'])
+    reddit_auth = requests.auth.HTTPBasicAuth(config['USER-KEYS']['client-id'], config['USER-KEYS']['secret-token'])
+
+    try:
+        res = youtube.search().list(part='snippet', type='channel', q='SSSniperWolf').execute()['items'] 
+    except Exception as e:
+        print("\n\nTHE YOUTUBE API KEY YOU PASSED WAS INVALID\n...\n\nEnding Python Script")
+        sys.exit()
+
+    try:
+        test_data = {'grant_type': 'password',
+                'username':  config['USER-KEYS']['reddit-username'],
+                'password': config['USER-KEYS']['reddit-password']}
+
+        # setup our header info, which gives reddit a brief description of our app
+        test_headers = {'User-Agent': 'PhilipVDataProjectAPI/0.0.1'}
+
+        # send our request for an OAuth token
+        test_res = requests.post('https://www.reddit.com/api/v1/access_token',
+                            auth=reddit_auth, data=test_data, headers=test_headers)
+        
+        test_res.json()['access_token'] #If the auth_data is wrong, this will trigger an error
+    except Exception as e:
+        print("\n\nTHE REDDIT AUTH DATA YOU PASSED WAS INVALID\n...\n\nEnding Python Script")
+        sys.exit()
+
+
+    try:
+        response = requests.get(config["USER-KEYS"]['default-site'])
+    except:
+        print('The default-site you inputted does not exist.')
+        sys.exit()
+
+
+    with open(file_path, "w") as f:
+        config.write(f)
+        print("Done")

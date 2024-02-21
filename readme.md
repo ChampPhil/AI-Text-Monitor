@@ -96,13 +96,8 @@ Run "pip install -r requirements.txt" or "pip3 install -r requirements.txt"
 <ins>Be sure to only input your user data once! </ins>
 
 - Navigate to the "dev_tools" library
-    - The project comes with the database.db and auth_database.db pre-installed, so ignore create_auth_database.py and create_main_database.py
-- Open up edit_auth_database.py and go to line 12 
-- Fill in these values with the instructions present
+- Run edit_auth_database.py and input your API keys according to the on-screen instuctions
     - The default_site variable dictates the "chosen site" where tabs of this project will redirect to when the server is shut down. 
-    ![Getting Started](./readme_pics/readme-pic6.png)
-- After making these changes, run edit_auth_database.py
-    - edit_auth_database.py will run a preliminary API request to make sure you inputted the proper values (and if not, the script will state where you went wrong.)
 
 ----------------------------------------------------------------------------------------------------------------------
 
