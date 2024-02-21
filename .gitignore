@@ -1,2 +1,3 @@
 sql_data/user_data.ini
+dev_tools/edit_auth_database.py
 __pycache__
